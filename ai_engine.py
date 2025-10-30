@@ -646,46 +646,6 @@ def get_personalized_career_path(okupasi_nama: str, skor: int, skill_gap: str, p
         st.error(f"Gagal menghasilkan roadmap AI: {e}")
         return "❌ Terjadi kesalahan saat menghasilkan roadmap karier AI."
 
-
-def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str, assessment_score: int = 0):
-    """
-    📋 Menghasilkan rekomendasi pekerjaan & pelatihan berbasis AI (Gemini)
-    """
-    try:
-        prompt = f"""
-        Anda adalah asisten karier digital. 
-        Analisis data berikut dan berikan rekomendasi pekerjaan serta pelatihan yang relevan.
-
-        Okupasi ID: {okupasi_id}
-        Profil pengguna: {profil_teks}
-        Skor asesmen: {assessment_score}/100
-        Gap keterampilan: {gap_keterampilan}
-
-        Kembalikan jawaban dalam format JSON seperti ini:
-        {{
-          "rekomendasi_pekerjaan": [
-            {{"Posisi": "Data Analyst", "Perusahaan": "TechCorp", "Lokasi": "Remote", "Keterampilan_Dibutuhkan": "SQL, Python", "Deskripsi_Pekerjaan": "Analisis data bisnis"}}
-          ],
-          "rekomendasi_pelatihan": [
-            "Python untuk Analisis Data",
-            "Dasar Machine Learning"
-          ]
-        }}
-        """
-
-        from ai_engine import call_gemini_api, sanitize_json_response
-
-        ai_response = call_gemini_api(prompt)
-        ai_response = sanitize_json_response(ai_response)
-
-        data = json.loads(ai_response)
-        return data.get("rekomendasi_pekerjaan", []), data.get("rekomendasi_pelatihan", [])
-
-    except Exception as e:
-        st.error(f"Gagal mendapatkan rekomendasi AI: {e}")
-        return [], []
-
-
 def get_national_dashboard_data():
     """Mengambil data untuk dashboard nasional"""
     print("📊 Mengambil data dashboard...")
