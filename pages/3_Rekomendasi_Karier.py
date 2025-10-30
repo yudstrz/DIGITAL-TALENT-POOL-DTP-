@@ -9,12 +9,16 @@ st.set_page_config(page_title="Rekomendasi Karier", page_icon="💡", layout="wi
 st.title("💡 3. Rekomendasi Karier Terpersonalisasi (Tahap 5)")
 st.markdown("Temukan **jalur karier** dan **pelatihan terbaik** berdasarkan profil serta hasil asesmen Anda.")
 
-# --- Seksi Analisis Profil Karier Otomatis ---
+# --- Input Profil ---
 st.markdown("### 🔍 Analisis Profil Karier Otomatis")
 user_profile = st.text_area(
     "Masukkan deskripsi singkat tentang pengalaman & minatmu:",
     placeholder="Contoh: Saya tertarik pada analisis data dan telah belajar Python serta statistik..."
 )
+
+# Simpan ke session_state agar bisa digunakan ulang
+if user_profile:
+    st.session_state["profil_teks"] = user_profile
 
 if st.button("🔎 Analisis dengan AI"):
     if user_profile.strip():
@@ -36,7 +40,11 @@ if 'mapped_okupasi_id' not in st.session_state or 'skill_gap' not in st.session_
     st.error("⚠️ Data okupasi atau skill gap belum tersedia. Selesaikan tahap asesmen terlebih dahulu.")
     st.stop()
 
-# --- Info Umum ---
+if 'profil_teks' not in st.session_state:
+    st.warning("⚠️ Deskripsi profil belum dimasukkan. Silakan isi bagian atas terlebih dahulu.")
+    st.stop()
+
+# --- Info Profil ---
 st.markdown(f"### 👤 Profil Anda")
 col1, col2, col3 = st.columns(3)
 col1.metric("Talent ID", st.session_state.get('talent_id', 'Tidak diketahui'))
@@ -50,7 +58,8 @@ with st.spinner("🤖 AI sedang memproses rekomendasi karier Anda..."):
     try:
         jobs, trainings = get_recommendations(
             st.session_state.get('mapped_okupasi_id', ''),
-            st.session_state.get('skill_gap', [])
+            st.session_state.get('skill_gap', []),
+            st.session_state.get('profil_teks', '')
         )
     except Exception as e:
         st.error(f"Gagal mengambil rekomendasi: {e}")
