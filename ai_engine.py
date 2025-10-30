@@ -589,69 +589,100 @@ def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str
 
     return rekomendasi_pekerjaan, rekomendasi_pelatihan
 
-def get_ai_based_recommendation(profil_teks: str, okupasi_nama: str, skor_asesmen: int, gap_keterampilan: str):
+    import json
+import streamlit as st
+
+def get_personalized_career_path(okupasi_nama: str, skor: int, skill_gap: str, profile_text: str):
     """
-    🔮 Memberikan rekomendasi karir berbasis AI (Gemini)
-    Args:
-        profil_teks: Ringkasan profil peserta (hasil ekstraksi CV)
-        okupasi_nama: Nama okupasi hasil pemetaan
-        skor_asesmen: Skor asesmen terakhir (0-100)
-        gap_keterampilan: Daftar keterampilan yang perlu ditingkatkan
-
-    Returns:
-        Tuple (rekomendasi_karir, rekomendasi_pelatihan_ai)
+    🚀 Membuat roadmap karier personal berbasis AI (Gemini)
     """
-    if not REQUESTS_AVAILABLE:
-        st.warning("Library 'requests' tidak tersedia — tidak dapat menggunakan AI rekomendasi.")
-        return [], []
-
-    prompt = f"""
-Anda adalah asisten karir digital untuk platform pengembangan talenta Indonesia.
-Gunakan data berikut untuk memberikan rekomendasi karir dan pelatihan yang relevan:
-
-=== PROFIL PESERTA ===
-{profil_teks}
-
-=== OKUPASI TERDEKAT ===
-{okupasi_nama}
-
-=== SKOR ASESMEN ===
-{skor_asesmen}/100
-
-=== GAP KETERAMPILAN ===
-{gap_keterampilan}
-
-Buat rekomendasi dalam format JSON berikut:
-{{
-  "rekomendasi_karir": [
-    "Nama jabatan atau posisi karir yang relevan",
-    "Jalur karir alternatif (bila ada)"
-  ],
-  "rekomendasi_pelatihan": [
-    "Nama kursus atau program peningkatan kompetensi yang direkomendasikan",
-    "Platform atau lembaga penyedia pelatihan (opsional)"
-  ]
-}}
-
-Catatan penting:
-- Jawaban HARUS berupa JSON valid tanpa teks tambahan
-- Gunakan bahasa Indonesia yang profesional dan ringkas
-"""
-
     try:
-        response_text = call_gemini_api(prompt)
-        response_text = sanitize_json_response(response_text)
-        response_json = json.loads(response_text)
+        prompt = f"""
+        Anda adalah asisten karier profesional.
+        Berdasarkan data berikut, buat roadmap karier yang realistis dan personal.
 
-        rekomendasi_karir = response_json.get("rekomendasi_karir", [])
-        rekomendasi_pelatihan = response_json.get("rekomendasi_pelatihan", [])
+        === PROFIL PESERTA ===
+        {profile_text}
 
-        print(f"✅ Rekomendasi AI Berhasil: {len(rekomendasi_karir)} karir, {len(rekomendasi_pelatihan)} pelatihan")
-        return rekomendasi_karir, rekomendasi_pelatihan
+        === OKUPASI YANG DITUJU ===
+        {okupasi_nama}
+
+        === SKOR ASESMEN ===
+        {skor} / 100
+
+        === SKILL GAP ===
+        {skill_gap}
+
+        Tampilkan roadmap karier dalam format Markdown.
+        Gunakan struktur yang rapi dengan heading dan bullet point, misalnya:
+
+        ## Tahap 1: Peningkatan Dasar
+        - Pelajari konsep ...
+        - Ikuti pelatihan ...
+        - Target waktu: 1 bulan
+
+        ## Tahap 2: Penguatan Kompetensi
+        - Terapkan skill ...
+        - Ikuti proyek mini ...
+        - Target waktu: 2–3 bulan
+
+        ## Tahap 3: Profesionalisasi
+        - Melamar ke posisi ...
+        - Kembangkan portofolio ...
+        - Bergabung di komunitas profesional ...
+
+        Tambahkan catatan motivasional singkat di akhir.
+        """
+
+        # Panggil fungsi yang kamu tambahkan sebelumnya
+        from ai_engine import call_gemini_api, sanitize_json_response
+
+        ai_response = call_gemini_api(prompt)
+
+        # Gemini biasanya bisa mengembalikan Markdown langsung, jadi kita tampilkan apa adanya
+        return ai_response.strip()
 
     except Exception as e:
-        st.error(f"❌ Gagal mendapatkan rekomendasi AI: {e}")
-        
+        st.error(f"Gagal menghasilkan roadmap AI: {e}")
+        return "❌ Terjadi kesalahan saat menghasilkan roadmap karier AI."
+
+
+def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str, assessment_score: int = 0):
+    """
+    📋 Menghasilkan rekomendasi pekerjaan & pelatihan berbasis AI (Gemini)
+    """
+    try:
+        prompt = f"""
+        Anda adalah asisten karier digital. 
+        Analisis data berikut dan berikan rekomendasi pekerjaan serta pelatihan yang relevan.
+
+        Okupasi ID: {okupasi_id}
+        Profil pengguna: {profil_teks}
+        Skor asesmen: {assessment_score}/100
+        Gap keterampilan: {gap_keterampilan}
+
+        Kembalikan jawaban dalam format JSON seperti ini:
+        {{
+          "rekomendasi_pekerjaan": [
+            {{"Posisi": "Data Analyst", "Perusahaan": "TechCorp", "Lokasi": "Remote", "Keterampilan_Dibutuhkan": "SQL, Python", "Deskripsi_Pekerjaan": "Analisis data bisnis"}}
+          ],
+          "rekomendasi_pelatihan": [
+            "Python untuk Analisis Data",
+            "Dasar Machine Learning"
+          ]
+        }}
+        """
+
+        from ai_engine import call_gemini_api, sanitize_json_response
+
+        ai_response = call_gemini_api(prompt)
+        ai_response = sanitize_json_response(ai_response)
+
+        data = json.loads(ai_response)
+        return data.get("rekomendasi_pekerjaan", []), data.get("rekomendasi_pelatihan", [])
+
+    except Exception as e:
+        st.error(f"Gagal mendapatkan rekomendasi AI: {e}")
         return [], []
 
 
