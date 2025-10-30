@@ -19,10 +19,29 @@ except ImportError:
     REQUESTS_AVAILABLE = False
     st.error("⚠️ Library 'requests' tidak ditemukan. Install dengan: pip install requests")
 
-# --- KONFIGURASI OLLAMA ---
-OLLAMA_BASE_URL = "https://api.hyperbolic.xyz/v1"
-OLLAMA_API_KEY = "ce7b9d99128d4b4dbddc089ca8bdbbb3.gpdZhQGkdwLOie9s_weyKGj1"
-OLLAMA_MODEL = "meta-llama/Llama-3.3-70B-Instruct"  # Llama 3.3 70B
+# --- KONFIGURASI API ---
+# Coba beberapa provider AI (fallback otomatis)
+API_PROVIDERS = {
+    "hyperbolic": {
+        "base_url": "https://api.hyperbolic.xyz/v1",
+        "api_key": "ce7b9d99128d4b4dbddc089ca8bdbbb3.gpdZhQGkdwLOie9s_weyKGj1",
+        "model": "meta-llama/Llama-3.3-70B-Instruct"
+    },
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        "api_key": "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",  # Free API key Groq
+        "model": "llama-3.3-70b-versatile"
+    }
+}
+
+# Default provider
+CURRENT_PROVIDER = "groq"  # Ganti ke Groq karena Hyperbolic error 401
+OLLAMA_BASE_URL = API_PROVIDERS[CURRENT_PROVIDER]["base_url"]
+OLLAMA_API_KEY = API_PROVIDERS[CURRENT_PROVIDER]["api_key"]
+OLLAMA_MODEL = API_PROVIDERS[CURRENT_PROVIDER]["model"]
+
+# Jumlah soal asesmen
+JUMLAH_SOAL = 5  # Dikurangi dari 10 menjadi 5
 
 def get_api_keys():
     """Mendapatkan API keys dari secrets atau hardcoded"""
@@ -41,9 +60,10 @@ def get_api_keys():
 GEMINI_API_KEY, OLLAMA_API_KEY = get_api_keys()
 
 
-def call_ollama_api(prompt: str, max_tokens: int = 4000) -> str:
+def call_ollama_api(prompt: str, max_tokens: int = 3000) -> str:
     """
-    Memanggil Hyperbolic API (kompatibel dengan OpenAI) untuk generate text.
+    Memanggil AI API (Groq/Hyperbolic) untuk generate text.
+    Dengan auto-fallback jika provider gagal.
     
     Args:
         prompt: Prompt untuk AI
@@ -55,63 +75,91 @@ def call_ollama_api(prompt: str, max_tokens: int = 4000) -> str:
     if not REQUESTS_AVAILABLE:
         raise Exception("Library 'requests' tidak tersedia")
     
-    headers = {
-        "Authorization": f"Bearer {OLLAMA_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    # Try current provider first
+    providers_to_try = [CURRENT_PROVIDER] + [p for p in API_PROVIDERS.keys() if p != CURRENT_PROVIDER]
     
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": "Anda adalah expert dalam bidang TIK Indonesia yang membuat soal asesmen kompetensi profesional. Anda HARUS menghasilkan output dalam format JSON yang valid."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "max_tokens": max_tokens,
-        "temperature": 0.7,
-        "response_format": {"type": "json_object"}  # Force JSON output
-    }
-    
-    try:
-        response = requests.post(
-            f"{OLLAMA_BASE_URL}/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=120  # Increase timeout untuk model besar
-        )
+    last_error = None
+    for provider_name in providers_to_try:
+        provider = API_PROVIDERS[provider_name]
         
-        # Log untuk debugging
-        print(f"API Response Status: {response.status_code}")
+        headers = {
+            "Authorization": f"Bearer {provider['api_key']}",
+            "Content-Type": "application/json"
+        }
         
-        response.raise_for_status()
+        payload = {
+            "model": provider['model'],
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Anda adalah expert dalam bidang TIK Indonesia yang membuat soal asesmen kompetensi profesional. Anda HARUS menghasilkan output dalam format JSON yang valid."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": max_tokens,
+            "temperature": 0.7
+        }
         
-        result = response.json()
+        # Groq tidak support response_format, hapus untuk Groq
+        if provider_name != "groq":
+            payload["response_format"] = {"type": "json_object"}
         
-        # Cek struktur response
-        if 'choices' not in result or len(result['choices']) == 0:
-            raise Exception(f"Response API tidak valid: {result}")
-        
-        content = result['choices'][0]['message']['content']
-        return content
-        
-    except requests.exceptions.HTTPError as e:
-        error_detail = ""
         try:
-            error_detail = response.json()
-        except:
-            error_detail = response.text
-        raise Exception(f"HTTP Error {response.status_code}: {error_detail}")
-        
-    except requests.exceptions.Timeout:
-        raise Exception("Request timeout - API membutuhkan waktu terlalu lama (>120s)")
-        
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Error calling Hyperbolic API: {e}")
+            print(f"🔄 Mencoba provider: {provider_name} ({provider['model']})")
+            
+            response = requests.post(
+                f"{provider['base_url']}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=120
+            )
+            
+            print(f"API Response Status: {response.status_code}")
+            
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            # Cek struktur response
+            if 'choices' not in result or len(result['choices']) == 0:
+                raise Exception(f"Response API tidak valid: {result}")
+            
+            content = result['choices'][0]['message']['content']
+            print(f"✅ Berhasil menggunakan provider: {provider_name}")
+            return content
+            
+        except requests.exceptions.HTTPError as e:
+            error_detail = ""
+            try:
+                error_detail = response.json()
+            except:
+                error_detail = response.text
+            
+            last_error = f"HTTP Error {response.status_code} dari {provider_name}: {error_detail}"
+            print(f"⚠️ {last_error}")
+            
+            # Jika 401, coba provider lain
+            if response.status_code == 401:
+                print(f"❌ Credential invalid untuk {provider_name}, mencoba provider lain...")
+                continue
+            else:
+                raise Exception(last_error)
+                
+        except requests.exceptions.Timeout:
+            last_error = f"Timeout dari {provider_name}"
+            print(f"⚠️ {last_error}")
+            continue
+            
+        except requests.exceptions.RequestException as e:
+            last_error = f"Error dari {provider_name}: {e}"
+            print(f"⚠️ {last_error}")
+            continue
+    
+    # Jika semua provider gagal
+    raise Exception(f"Semua AI provider gagal. Last error: {last_error}")
 
 
 def load_excel_sheet(file_path, sheet_name):
@@ -214,16 +262,16 @@ def map_profile_to_pon(profile_text: str):
 
 def generate_assessment_questions(okupasi_id: str):
     """
-    Generate 10 soal pilihan ganda WAJIB menggunakan AI (Ollama).
+    Generate 5 soal pilihan ganda WAJIB menggunakan AI.
     Tidak ada fallback - jika AI gagal, akan raise error.
     
     Args:
         okupasi_id: ID okupasi dari PON TIK
     
     Returns:
-        List of dict dengan 10 soal pilihan ganda
+        List of dict dengan 5 soal pilihan ganda
     """
-    print(f"🤖 Membuat 10 soal asesmen dengan AI untuk Okupasi ID: {okupasi_id}...")
+    print(f"🤖 Membuat {JUMLAH_SOAL} soal asesmen dengan AI untuk Okupasi ID: {okupasi_id}...")
     
     # Ambil detail okupasi dari database
     if not st.session_state.get('ai_initialized'):
@@ -242,8 +290,8 @@ def generate_assessment_questions(okupasi_id: str):
     except Exception as e:
         raise Exception(f"Error mengambil data okupasi: {e}")
     
-    # Generate soal menggunakan Hyperbolic API (Llama 3.3 70B)
-    prompt = f"""Buat TEPAT 10 soal pilihan ganda untuk menguji kompetensi seorang kandidat pada okupasi berikut:
+    # Generate soal menggunakan AI
+    prompt = f"""Buat TEPAT {JUMLAH_SOAL} soal pilihan ganda untuk menguji kompetensi seorang kandidat pada okupasi berikut:
 
 **Okupasi:** {okupasi_nama}
 **Unit Kompetensi:** {unit_kompetensi}
@@ -277,13 +325,13 @@ def generate_assessment_questions(okupasi_id: str):
 }}
 
 PENTING: 
-- TEPAT 10 soal (q1 sampai q10)
+- TEPAT {JUMLAH_SOAL} soal (q1 sampai q{JUMLAH_SOAL})
 - Field "jawaban_benar" harus persis sama dengan salah satu opsi
 - Output harus valid JSON"""
 
     try:
-        with st.spinner(f"🤖 AI sedang membuat 10 soal untuk {okupasi_nama}..."):
-            response_text = call_ollama_api(prompt, max_tokens=4000)
+        with st.spinner(f"🤖 AI sedang membuat {JUMLAH_SOAL} soal untuk {okupasi_nama}..."):
+            response_text = call_ollama_api(prompt, max_tokens=3000)
         
         print(f"Raw AI Response (first 500 chars): {response_text[:500]}")
         
@@ -302,17 +350,17 @@ PENTING:
         if not isinstance(questions, list):
             raise ValueError("Output AI bukan list/array")
         
-        if len(questions) != 10:
-            st.warning(f"AI menghasilkan {len(questions)} soal, bukan 10. Menyesuaikan...")
-            # Jika kurang dari 10, tambahkan dummy
-            while len(questions) < 10:
+        if len(questions) != JUMLAH_SOAL:
+            st.warning(f"AI menghasilkan {len(questions)} soal, bukan {JUMLAH_SOAL}. Menyesuaikan...")
+            # Jika kurang dari JUMLAH_SOAL, tambahkan dummy
+            while len(questions) < JUMLAH_SOAL:
                 questions.append({
                     "id": f"q{len(questions)+1}",
                     "teks": f"[Soal tambahan {len(questions)+1}] Dalam konteks {okupasi_nama}, bagaimana Anda menangani situasi darurat?",
                     "opsi": ["Eskalasi ke atasan", "Konsultasi tim", "Cek dokumentasi", "Trial-error terkontrol"],
                     "jawaban_benar": "Konsultasi tim"
                 })
-            questions = questions[:10]
+            questions = questions[:JUMLAH_SOAL]
         
         # Validasi struktur setiap soal
         for i, q in enumerate(questions):
@@ -332,7 +380,7 @@ PENTING:
             q["id"] = f"q{i+1}"
             q["tipe"] = "pilihan_ganda"
         
-        print(f"✅ Berhasil generate {len(questions)} soal dengan AI (Llama 3.3 70B)")
+        print(f"✅ Berhasil generate {len(questions)} soal dengan AI")
         return questions
         
     except json.JSONDecodeError as e:
