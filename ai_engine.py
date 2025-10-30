@@ -505,6 +505,50 @@ Tip: Coba jalankan ulang. Jika error terus terjadi, kemungkinan API Gemini menge
         st.error(error_msg)
         raise Exception(error_msg)
 
+def analyze_career_profile_ai(profile_text: str):
+    """
+    🧠 Analisis otomatis profil peserta untuk rekomendasi karier berbasis AI.
+    Menggunakan Gemini untuk memahami kekuatan, potensi karier, dan saran pengembangan.
+
+    Args:
+        profile_text (str): Deskripsi CV, pengalaman, atau minat peserta.
+
+    Returns:
+        str: Hasil analisis dalam format Markdown.
+    """
+    try:
+        prompt = f"""
+        Anda adalah career coach profesional.
+        Analisis teks profil berikut dan berikan insight serta rekomendasi karier.
+
+        === PROFIL PESERTA ===
+        {profile_text}
+
+        Buat analisis yang terdiri dari bagian berikut:
+        ## 1. Ringkasan Profil
+        - Ringkas kekuatan utama dan pengalaman peserta.
+
+        ## 2. Potensi Karier
+        - Sebutkan 2–3 bidang atau okupasi TIK yang paling cocok.
+        - Jelaskan alasan pemilihan tersebut.
+
+        ## 3. Rekomendasi Pengembangan
+        - Sebutkan skill yang sebaiknya ditingkatkan.
+        - Berikan saran platform belajar atau aktivitas yang bisa dilakukan.
+
+        ## 4. Catatan Motivasi
+        - Tambahkan pesan motivasi singkat dan positif.
+
+        Gunakan bahasa Indonesia profesional, ringkas, dan inspiratif.
+        Format hasil dalam Markdown tanpa JSON.
+        """
+
+        ai_response = call_gemini_api(prompt)
+        return ai_response.strip()
+
+    except Exception as e:
+        st.error(f"❌ Gagal menganalisis profil AI: {e}")
+        return "⚠️ Terjadi kesalahan saat menganalisis profil dengan AI."
 
 def validate_assessment(answers: dict, questions: list):
     """
