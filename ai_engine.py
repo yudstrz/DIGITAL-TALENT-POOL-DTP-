@@ -223,14 +223,33 @@ def sanitize_json_response(text: str) -> str:
         Cleaned JSON string
     """
     # 1. Hapus escape sequence yang invalid
-    # Replace \e, \x, dll yang bukan \n, \t, \r, \", \\, \/
-    text = re.sub(r'\\(?![ntr"\\/])', '', text)
+    # Replace \e, \x, dll yang bukan \n, \t, \r, \", \\, \/, \b, \f, \u
+    text = re.sub(r'\\(?![ntr"\\/bfuU])', '', text)
     
     # 2. Fix kutip tunggal di dalam string yang mungkin jadi masalah
     # Ganti \'  dengan ' (karena dalam JSON string pakai double quote)
     text = text.replace("\\'", "'")
     
-    # 3. Hapus whitespace berlebih
+    # 3. Hapus control characters yang bisa merusak JSON
+    text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
+    
+    # 4. Fix newline di tengah string (ganti dengan spasi)
+    # Ini untuk mencegah string multiline yang break JSON
+    text = re.sub(r'"\s*\n\s*([^":])', r'" \1', text)
+    
+    # 5. Auto-fix missing commas antara objects dalam array
+    # Pattern: } diikuti { tanpa koma di antaranya
+    text = re.sub(r'\}\s*\{', '},{', text)
+    
+    # 6. Auto-fix missing commas antara array items
+    # Pattern: ] diikuti " tanpa koma
+    text = re.sub(r'\]\s*"', '],"', text)
+    
+    # 7. Auto-fix missing commas setelah nilai string
+    # Pattern: "value" diikuti "key" tanpa koma
+    text = re.sub(r'"\s+("(?:id|teks|opsi|jawaban_benar)")', r',\1', text)
+    
+    # 8. Hapus whitespace berlebih
     text = text.strip()
     
     return text
@@ -313,30 +332,33 @@ Buat TEPAT {JUMLAH_SOAL} soal pilihan ganda untuk menguji kompetensi seorang kan
 7. Gunakan bahasa Indonesia yang profesional
 8. HINDARI penggunaan kutip tunggal atau karakter khusus yang bisa merusak JSON
 
-**Format Output JSON:**
+**Format Output JSON (HARUS PERSIS SEPERTI INI):**
 {{
   "questions": [
     {{
       "id": "q1",
-      "teks": "Pertanyaan lengkap dalam 1-3 kalimat...",
+      "teks": "Pertanyaan lengkap dalam 1-3 kalimat",
       "opsi": ["Opsi A yang lengkap", "Opsi B yang lengkap", "Opsi C yang lengkap", "Opsi D yang lengkap"],
       "jawaban_benar": "Opsi A yang lengkap"
     }},
     {{
       "id": "q2",
-      "teks": "...",
-      "opsi": ["...", "...", "...", "..."],
-      "jawaban_benar": "..."
+      "teks": "Pertanyaan lengkap dalam 1-3 kalimat",
+      "opsi": ["Opsi A yang lengkap", "Opsi B yang lengkap", "Opsi C yang lengkap", "Opsi D yang lengkap"],
+      "jawaban_benar": "Opsi B yang lengkap"
     }}
   ]
 }}
 
-PENTING: 
+ATURAN KETAT JSON:
 - TEPAT {JUMLAH_SOAL} soal (q1 sampai q{JUMLAH_SOAL})
+- Setiap object soal HARUS dipisah dengan koma
 - Field "jawaban_benar" harus persis sama dengan salah satu opsi
-- Output HANYA JSON valid, tanpa teks tambahan
+- Output HANYA JSON valid, tanpa teks tambahan sebelum atau sesudah
 - Jangan gunakan escape sequence seperti \\n atau \\t di dalam string
-- Gunakan spasi biasa, bukan tab atau newline di dalam teks soal"""
+- Jangan gunakan newline di tengah string - tulis semua dalam satu baris
+- Gunakan spasi biasa untuk pemisah kata, bukan tab atau newline
+- PASTIKAN semua kurung kurawal dan bracket tertutup dengan benar"""
 
     try:
         with st.spinner(f"🤖 Gemini AI sedang membuat {JUMLAH_SOAL} soal untuk {okupasi_nama}..."):
@@ -398,25 +420,78 @@ PENTING:
     except json.JSONDecodeError as e:
         # Coba sekali lagi dengan cleaning lebih agresif
         try:
-            # Ekstrak hanya bagian array questions jika ada
+            print(f"⚠️ JSON parsing gagal, mencoba metode alternatif...")
+            
+            # Metode 1: Ekstrak array questions dengan regex
             match = re.search(r'"questions"\s*:\s*(\[.*\])', response_text, re.DOTALL)
             if match:
                 questions_json = match.group(1)
+                
+                # Cleaning tambahan untuk array
+                # Fix missing commas setelah closing brace
+                questions_json = re.sub(r'\}\s*\{', '},{', questions_json)
+                # Fix missing commas setelah closing bracket dalam array
+                questions_json = re.sub(r'\]\s*"', '],"', questions_json)
+                # Fix missing commas setelah string
+                questions_json = re.sub(r'"\s*"([a-zA-Z_]+)"', '","\\1"', questions_json)
+                
                 # Wrap kembali dalam object
                 cleaned = f'{{"questions": {questions_json}}}'
                 cleaned = sanitize_json_response(cleaned)
+                
+                print(f"Cleaned JSON (first 500 chars): {cleaned[:500]}")
                 response_json = json.loads(cleaned)
                 
                 if "questions" in response_json:
                     questions = response_json["questions"]
                     print(f"✅ Berhasil parse JSON setelah cleaning agresif")
+                    
+                    # Lanjut ke validasi
+                    if not isinstance(questions, list):
+                        raise ValueError("Output AI bukan list/array")
+                    
+                    if len(questions) != JUMLAH_SOAL:
+                        st.warning(f"AI menghasilkan {len(questions)} soal, bukan {JUMLAH_SOAL}. Menyesuaikan...")
+                        while len(questions) < JUMLAH_SOAL:
+                            questions.append({
+                                "id": f"q{len(questions)+1}",
+                                "teks": f"[Soal tambahan {len(questions)+1}] Dalam konteks {okupasi_nama}, bagaimana Anda menangani situasi darurat?",
+                                "opsi": ["Eskalasi ke atasan", "Konsultasi tim", "Cek dokumentasi", "Trial-error terkontrol"],
+                                "jawaban_benar": "Konsultasi tim"
+                            })
+                        questions = questions[:JUMLAH_SOAL]
+                    
+                    # Validasi struktur setiap soal
+                    for i, q in enumerate(questions):
+                        if not all(key in q for key in ["id", "teks", "opsi", "jawaban_benar"]):
+                            raise ValueError(f"Soal {i+1} tidak memiliki struktur lengkap. Field: {q.keys()}")
+                        
+                        if len(q["opsi"]) != 4:
+                            raise ValueError(f"Soal {i+1} tidak memiliki 4 opsi (ada {len(q['opsi'])})")
+                        
+                        if q["jawaban_benar"] not in q["opsi"]:
+                            raise ValueError(f"Soal {i+1}: Jawaban benar '{q['jawaban_benar']}' tidak ada di opsi {q['opsi']}")
+                        
+                        q["id"] = f"q{i+1}"
+                        q["tipe"] = "pilihan_ganda"
+                    
+                    print(f"✅ Berhasil generate {len(questions)} soal dengan Gemini AI (setelah retry)")
+                    return questions
                 else:
                     raise ValueError("Tidak ada field 'questions' setelah re-parse")
             else:
                 raise ValueError("Tidak bisa ekstrak array questions dari response")
                 
         except Exception as retry_error:
-            error_msg = f"❌ Error parsing JSON dari AI: {e}\n\nRetry Error: {retry_error}\n\nResponse AI (first 1000 chars):\n{response_text[:1000]}"
+            # Tampilkan response yang bermasalah untuk debugging
+            error_msg = f"""❌ Error parsing JSON dari AI: {e}
+
+Retry Error: {retry_error}
+
+Response AI (first 2000 chars):
+{response_text[:2000]}
+
+Tip: Coba jalankan ulang. Jika error terus terjadi, kemungkinan API Gemini mengeluarkan format yang tidak konsisten."""
             st.error(error_msg)
             raise Exception(error_msg)
         
