@@ -19,25 +19,17 @@ except ImportError:
     REQUESTS_AVAILABLE = False
     st.error("⚠️ Library 'requests' tidak ditemukan. Install dengan: pip install requests")
 
-# --- KONFIGURASI GEMINI ---
-GEMINI_API_KEY = "AIzaSyCR8xgDIv5oYBaDmMyuGGWjqpFi7U8SGA4"
+# --- ⚠️ PERINGATAN KEAMANAN ---
+# Sesuai permintaan Anda, API key ditaruh di sini.
+# INI SANGAT BERISIKO. Jangan pernah unggah kode ini ke GitHub.
+GEMINI_API_KEY = "AIzaSyCR8xgDIv5oYBaDmMyuGGWjqpFi7U8SGA4" 
+# --- ⚠️ AKHIR PERINGATAN ---
+
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-GEMINI_MODEL = "gemini-flash-latest"  # Nama model yang benar untuk v1beta
+GEMINI_MODEL = "gemini-1.5-flash-latest"  # Nama model yang benar untuk v1beta
 
 # Jumlah soal asesmen
 JUMLAH_SOAL = 5
-
-def get_api_keys():
-    """Mendapatkan API keys dari secrets atau hardcoded"""
-    gemini_key = GEMINI_API_KEY
-    
-    # Coba ambil dari Streamlit secrets jika ada
-    if hasattr(st, 'secrets') and 'GEMINI_API_KEY' in st.secrets:
-        gemini_key = st.secrets['GEMINI_API_KEY']
-    
-    return gemini_key
-
-GEMINI_API_KEY = get_api_keys()
 
 
 def call_gemini_api(prompt: str) -> str:
@@ -45,13 +37,16 @@ def call_gemini_api(prompt: str) -> str:
     Memanggil Google Gemini API untuk generate text.
     
     Args:
-        prompt: Prompt untuk AI
+        prompt: Prompt untuk AI (harus sudah berisi instruksi format jika perlu)
         
     Returns:
         Response text dari AI
     """
     if not REQUESTS_AVAILABLE:
         raise Exception("Library 'requests' tidak tersedia")
+        
+    if not GEMINI_API_KEY:
+        raise Exception("GEMINI_API_KEY kosong. Harap isi di dalam kode.")
     
     url = f"{GEMINI_BASE_URL}/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     
@@ -59,25 +54,18 @@ def call_gemini_api(prompt: str) -> str:
         "Content-Type": "application/json"
     }
     
-    # Instruksi JSON di dalam prompt
-    json_instruction = """
-
-PENTING: Anda HARUS merespons dengan JSON yang valid. Tidak ada teks tambahan di luar JSON.
-Format yang diharapkan:
-{
-  "questions": [
-    {"id": "q1", "teks": "...", "opsi": ["...", "...", "...", "..."], "jawaban_benar": "..."},
-    {"id": "q2", "teks": "...", "opsi": ["...", "...", "...", "..."], "jawaban_benar": "..."}
-  ]
-}
-"""
+    # --- PERBAIKAN PENTING ---
+    # Instruksi JSON (json_instruction) dihapus dari sini.
+    # Sekarang, 'prompt' yang dikirim ke fungsi ini HARUS berisi instruksi
+    # formatnya sendiri (baik itu JSON atau Markdown).
+    # Ini memperbaiki error di get_personalized_career_path.
     
     payload = {
         "contents": [
             {
                 "parts": [
                     {
-                        "text": prompt + json_instruction
+                        "text": prompt  # Langsung gunakan prompt
                     }
                 ]
             }
@@ -111,7 +99,7 @@ Format yang diharapkan:
         # Ambil text dari response
         content = result['candidates'][0]['content']['parts'][0]['text']
         
-        # Clean markdown code fence jika ada
+        # Clean markdown code fence jika ada (penting untuk JSON)
         content = content.strip()
         if content.startswith("```json"):
             content = content[7:]
@@ -147,7 +135,7 @@ def load_excel_sheet(file_path, sheet_name):
     try:
         df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
         df.columns = df.columns.str.strip()
-        df = df.fillna('') 
+        df = df.fillna('')  
         return df
     except FileNotFoundError:
         st.error(f"Gagal memuat file: '{file_path}'. Pastikan file ada di folder 'data/'.")
@@ -169,7 +157,7 @@ def initialize_ai_engine():
             return False
             
         df_jobs = load_excel_sheet(EXCEL_PATH, SHEET_LOWONGAN)
-        if df_jobs is None: 
+        if df_jobs is None:  
             st.warning(f"Sheet '{SHEET_LOWONGAN}' tidak ditemukan.")
             df_jobs = pd.DataFrame(columns=['OkupasiID', 'Deskripsi_Pekerjaan', 'Posisi', 'Perusahaan', 'Keterampilan_Dibutuhkan'])
 
@@ -179,8 +167,8 @@ def initialize_ai_engine():
         job_corpus = df_jobs['Posisi'] + ' ' + df_jobs['Deskripsi_Pekerjaan'] + ' ' + df_jobs['Keterampilan_Dibutuhkan']
 
         if pon_corpus.empty and job_corpus.empty:
-             st.error("Data PON dan Lowongan kosong.")
-             return False
+                 st.error("Data PON dan Lowongan kosong.")
+                 return False
         
         full_corpus = pd.concat([pon_corpus, job_corpus])
         vectorizer.fit(full_corpus)
@@ -212,49 +200,6 @@ def extract_profile_entities(raw_cv: str):
     return profile_text
 
 
-def sanitize_json_response(text: str) -> str:
-    """
-    Membersihkan response JSON dari AI untuk menghindari error parsing.
-    
-    Args:
-        text: Raw JSON string dari AI
-        
-    Returns:
-        Cleaned JSON string
-    """
-    # 1. Hapus escape sequence yang invalid
-    # Replace \e, \x, dll yang bukan \n, \t, \r, \", \\, \/, \b, \f, \u
-    text = re.sub(r'\\(?![ntr"\\/bfuU])', '', text)
-    
-    # 2. Fix kutip tunggal di dalam string yang mungkin jadi masalah
-    # Ganti \'  dengan ' (karena dalam JSON string pakai double quote)
-    text = text.replace("\\'", "'")
-    
-    # 3. Hapus control characters yang bisa merusak JSON
-    text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
-    
-    # 4. Fix newline di tengah string (ganti dengan spasi)
-    # Ini untuk mencegah string multiline yang break JSON
-    text = re.sub(r'"\s*\n\s*([^":])', r'" \1', text)
-    
-    # 5. Auto-fix missing commas antara objects dalam array
-    # Pattern: } diikuti { tanpa koma di antaranya
-    text = re.sub(r'\}\s*\{', '},{', text)
-    
-    # 6. Auto-fix missing commas antara array items
-    # Pattern: ] diikuti " tanpa koma
-    text = re.sub(r'\]\s*"', '],"', text)
-    
-    # 7. Auto-fix missing commas setelah nilai string
-    # Pattern: "value" diikuti "key" tanpa koma
-    text = re.sub(r'"\s+("(?:id|teks|opsi|jawaban_benar)")', r',\1', text)
-    
-    # 8. Hapus whitespace berlebih
-    text = text.strip()
-    
-    return text
-
-
 def map_profile_to_pon(profile_text: str):
     """Pemetaan profil ke PON TIK menggunakan semantic search"""
     print(f"Memetakan profil: {profile_text[:50]}...")
@@ -273,6 +218,7 @@ def map_profile_to_pon(profile_text: str):
         okupasi_id = pon_data['OkupasiID']
         okupasi_nama = pon_data['Okupasi']
         
+        # Ini adalah simulasi (hardcoded)
         gap_keterampilan = "Cloud Computing (AWS/GCP), CI/CD Pipelines, Manajemen Proyek Agile"
         
         print(f"Hasil Pemetaan: {okupasi_nama} (Skor: {best_score:.2f})")
@@ -286,17 +232,9 @@ def map_profile_to_pon(profile_text: str):
 def generate_assessment_questions(okupasi_id: str):
     """
     Generate 5 soal pilihan ganda WAJIB menggunakan AI.
-    Tidak ada fallback - jika AI gagal, akan raise error.
-    
-    Args:
-        okupasi_id: ID okupasi dari PON TIK
-    
-    Returns:
-        List of dict dengan 5 soal pilihan ganda
     """
     print(f"🤖 Membuat {JUMLAH_SOAL} soal asesmen dengan AI untuk Okupasi ID: {okupasi_id}...")
     
-    # Ambil detail okupasi dari database
     if not st.session_state.get('ai_initialized'):
         raise Exception("AI Engine belum diinisialisasi. Tidak bisa generate soal.")
     
@@ -330,44 +268,35 @@ Buat TEPAT {JUMLAH_SOAL} soal pilihan ganda untuk menguji kompetensi seorang kan
 5. Hanya 1 jawaban yang benar per soal
 6. Opsi jawaban harus masuk akal dan tidak obvious
 7. Gunakan bahasa Indonesia yang profesional
-8. HINDARI penggunaan kutip tunggal atau karakter khusus yang bisa merusak JSON
 
-**Format Output JSON (HARUS PERSIS SEPERTI INI):**
+**Format Output JSON:**
 {{
   "questions": [
     {{
       "id": "q1",
-      "teks": "Pertanyaan lengkap dalam 1-3 kalimat",
+      "teks": "Pertanyaan lengkap dalam 1-3 kalimat...",
       "opsi": ["Opsi A yang lengkap", "Opsi B yang lengkap", "Opsi C yang lengkap", "Opsi D yang lengkap"],
       "jawaban_benar": "Opsi A yang lengkap"
     }},
     {{
       "id": "q2",
-      "teks": "Pertanyaan lengkap dalam 1-3 kalimat",
-      "opsi": ["Opsi A yang lengkap", "Opsi B yang lengkap", "Opsi C yang lengkap", "Opsi D yang lengkap"],
-      "jawaban_benar": "Opsi B yang lengkap"
+      "teks": "...",
+      "opsi": ["...", "...", "...", "..."],
+      "jawaban_benar": "..."
     }}
   ]
 }}
 
-ATURAN KETAT JSON:
+PENTING: 
 - TEPAT {JUMLAH_SOAL} soal (q1 sampai q{JUMLAH_SOAL})
-- Setiap object soal HARUS dipisah dengan koma
 - Field "jawaban_benar" harus persis sama dengan salah satu opsi
-- Output HANYA JSON valid, tanpa teks tambahan sebelum atau sesudah
-- Jangan gunakan escape sequence seperti \\n atau \\t di dalam string
-- Jangan gunakan newline di tengah string - tulis semua dalam satu baris
-- Gunakan spasi biasa untuk pemisah kata, bukan tab atau newline
-- PASTIKAN semua kurung kurawal dan bracket tertutup dengan benar"""
+- Output HANYA JSON, tanpa teks tambahan"""
 
     try:
         with st.spinner(f"🤖 Gemini AI sedang membuat {JUMLAH_SOAL} soal untuk {okupasi_nama}..."):
             response_text = call_gemini_api(prompt)
         
         print(f"Raw Gemini Response (first 500 chars): {response_text[:500]}")
-        
-        # Sanitasi response untuk menghindari error JSON parsing
-        response_text = sanitize_json_response(response_text)
         
         # Parse JSON
         response_json = json.loads(response_text)
@@ -418,82 +347,9 @@ ATURAN KETAT JSON:
         return questions
         
     except json.JSONDecodeError as e:
-        # Coba sekali lagi dengan cleaning lebih agresif
-        try:
-            print(f"⚠️ JSON parsing gagal, mencoba metode alternatif...")
-            
-            # Metode 1: Ekstrak array questions dengan regex
-            match = re.search(r'"questions"\s*:\s*(\[.*\])', response_text, re.DOTALL)
-            if match:
-                questions_json = match.group(1)
-                
-                # Cleaning tambahan untuk array
-                # Fix missing commas setelah closing brace
-                questions_json = re.sub(r'\}\s*\{', '},{', questions_json)
-                # Fix missing commas setelah closing bracket dalam array
-                questions_json = re.sub(r'\]\s*"', '],"', questions_json)
-                # Fix missing commas setelah string
-                questions_json = re.sub(r'"\s*"([a-zA-Z_]+)"', '","\\1"', questions_json)
-                
-                # Wrap kembali dalam object
-                cleaned = f'{{"questions": {questions_json}}}'
-                cleaned = sanitize_json_response(cleaned)
-                
-                print(f"Cleaned JSON (first 500 chars): {cleaned[:500]}")
-                response_json = json.loads(cleaned)
-                
-                if "questions" in response_json:
-                    questions = response_json["questions"]
-                    print(f"✅ Berhasil parse JSON setelah cleaning agresif")
-                    
-                    # Lanjut ke validasi
-                    if not isinstance(questions, list):
-                        raise ValueError("Output AI bukan list/array")
-                    
-                    if len(questions) != JUMLAH_SOAL:
-                        st.warning(f"AI menghasilkan {len(questions)} soal, bukan {JUMLAH_SOAL}. Menyesuaikan...")
-                        while len(questions) < JUMLAH_SOAL:
-                            questions.append({
-                                "id": f"q{len(questions)+1}",
-                                "teks": f"[Soal tambahan {len(questions)+1}] Dalam konteks {okupasi_nama}, bagaimana Anda menangani situasi darurat?",
-                                "opsi": ["Eskalasi ke atasan", "Konsultasi tim", "Cek dokumentasi", "Trial-error terkontrol"],
-                                "jawaban_benar": "Konsultasi tim"
-                            })
-                        questions = questions[:JUMLAH_SOAL]
-                    
-                    # Validasi struktur setiap soal
-                    for i, q in enumerate(questions):
-                        if not all(key in q for key in ["id", "teks", "opsi", "jawaban_benar"]):
-                            raise ValueError(f"Soal {i+1} tidak memiliki struktur lengkap. Field: {q.keys()}")
-                        
-                        if len(q["opsi"]) != 4:
-                            raise ValueError(f"Soal {i+1} tidak memiliki 4 opsi (ada {len(q['opsi'])})")
-                        
-                        if q["jawaban_benar"] not in q["opsi"]:
-                            raise ValueError(f"Soal {i+1}: Jawaban benar '{q['jawaban_benar']}' tidak ada di opsi {q['opsi']}")
-                        
-                        q["id"] = f"q{i+1}"
-                        q["tipe"] = "pilihan_ganda"
-                    
-                    print(f"✅ Berhasil generate {len(questions)} soal dengan Gemini AI (setelah retry)")
-                    return questions
-                else:
-                    raise ValueError("Tidak ada field 'questions' setelah re-parse")
-            else:
-                raise ValueError("Tidak bisa ekstrak array questions dari response")
-                
-        except Exception as retry_error:
-            # Tampilkan response yang bermasalah untuk debugging
-            error_msg = f"""❌ Error parsing JSON dari AI: {e}
-
-Retry Error: {retry_error}
-
-Response AI (first 2000 chars):
-{response_text[:2000]}
-
-Tip: Coba jalankan ulang. Jika error terus terjadi, kemungkinan API Gemini mengeluarkan format yang tidak konsisten."""
-            st.error(error_msg)
-            raise Exception(error_msg)
+        error_msg = f"❌ Error parsing JSON dari AI: {e}\n\nResponse AI:\n{response_text[:1000]}"
+        st.error(error_msg)
+        raise Exception(error_msg)
         
     except requests.exceptions.RequestException as e:
         error_msg = f"❌ Error koneksi ke API: {e}"
@@ -513,7 +369,7 @@ def validate_assessment(answers: dict, questions: list):
     Args:
         answers: Dict dengan format {question_id: selected_answer}
         questions: List soal dengan jawaban benar
-    
+        
     Returns:
         (skor, level): Skor 0-100 dan level kompetensi
     """
@@ -553,8 +409,16 @@ def validate_assessment(answers: dict, questions: list):
     return skor, level
 
 
-def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str):
-    """Mendapatkan rekomendasi pekerjaan dan pelatihan"""
+def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str, assessment_score: int = 0):
+    """
+    Mendapatkan rekomendasi pekerjaan dan pelatihan
+    
+    Args:
+        okupasi_id: ID okupasi target
+        gap_keterampilan: Skill gap yang teridentifikasi
+        profil_teks: Profil lengkap user
+        assessment_score: Skor asesmen (untuk prioritas pelatihan)
+    """
     print(f"Mencari rekomendasi untuk {okupasi_id}...")
     
     rekomendasi_pekerjaan = []
@@ -565,29 +429,121 @@ def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str
         return [], []
 
     try:
-        # Rekomendasi Pekerjaan (Semantic Search)
+        # Rekomendasi Pekerjaan (Content-Based Filtering via Semantic Search)
         if st.session_state.get('job_vectors') is not None and st.session_state.job_vectors.shape[0] > 0:
             query_vector = st.session_state.vectorizer.transform([profil_teks])
             scores = cosine_similarity(query_vector, st.session_state.job_vectors)
-            top_3_indices = scores.argsort()[0][-3:][::-1]
-            rekomendasi_pekerjaan = st.session_state.job_data.iloc[top_3_indices].to_dict('records')
+            
+            # Ambil top 5 lowongan paling mirip
+            top_5_indices = scores.argsort()[0][-5:][::-1]
+            rekomendasi_pekerjaan = st.session_state.job_data.iloc[top_5_indices].to_dict('records')
+            
+            print(f"✅ Ditemukan {len(rekomendasi_pekerjaan)} lowongan yang cocok")
         else:
-            print("Tidak ada data lowongan.")
+            print("⚠️ Tidak ada data lowongan.")
             
     except Exception as e:
         st.error(f"Error saat mencari rekomendasi pekerjaan: {e}")
 
     try:
-        # Rekomendasi Pelatihan berdasarkan gap
+        # Rekomendasi Pelatihan (Rule-Based System berdasarkan Skill Gap)
         gaps = [g.strip() for g in gap_keterampilan.split(',')]
+        
         for gap in gaps:
+            # Prioritas berdasarkan assessment score
+            if assessment_score < 70:
+                prefix = "Bootcamp Intensif"
+                platform = "Dicoding/RevoU"
+            elif assessment_score < 85:
+                prefix = "Kursus Online"
+                platform = "Coursera/Udemy"
+            else:
+                prefix = "Sertifikasi Profesional"
+                platform = "AWS/Google Cloud"
+            
             rekomendasi_pelatihan.append(
-                f"Kursus Intensif: {gap} (Platform: Dicoding/Coursera/LinkedIn Learning)"
+                f"{prefix}: {gap} ({platform})"
             )
     except Exception as e:
         st.error(f"Error saat membuat rekomendasi pelatihan: {e}")
 
     return rekomendasi_pekerjaan, rekomendasi_pelatihan
+
+
+def get_personalized_career_path(okupasi_nama: str, skor: int, skill_gap: str, profile_text: str) -> str:
+    """
+    Generate personalized career path menggunakan Gemini AI.
+    """
+    print(f"🤖 Generating personalized career path untuk {okupasi_nama}...")
+    
+    # Tentukan level saat ini
+    current_level = "Junior" if skor < 70 else "Menengah" if skor < 85 else "Senior"
+    
+    # --- PERBAIKAN ---
+    # Prompt ini *tidak* meminta JSON, jadi `call_gemini_api`
+    # (yang sudah diperbaiki) akan mengembalikan teks/markdown.
+    prompt = f"""Anda adalah career advisor profesional di bidang TIK Indonesia.
+
+Buatkan jalur karier terpersonalisasi untuk kandidat berikut:
+
+**Profil Kandidat:**
+- Okupasi Target: {okupasi_nama}
+- Level Saat Ini: {current_level} (Skor Asesmen: {skor}/100)
+- Skill Gap: {skill_gap}
+- Background: {profile_text[:200]}...
+
+**Tugas Anda:**
+Buatkan roadmap karier 12-24 bulan dalam format Markdown dengan struktur:
+
+1. **Posisi Anda Sekarang** (analisis singkat)
+2. **Target Posisi (6-12 bulan)** dengan langkah konkret
+3. **Target Posisi (12-24 bulan)** dengan langkah konkret
+4. **Rekomendasi Sertifikasi** yang relevan
+5. **Tips Networking & Portfolio**
+
+Gunakan emoji dan format yang menarik. Fokus pada langkah praktis dan realistis untuk konteks Indonesia.
+Jangan terlalu panjang (max 500 kata)."""
+
+    try:
+        response = call_gemini_api(prompt)
+        
+        # Clean response (remove JSON wrapper jika tidak sengaja ada)
+        if response.startswith('{') and response.endswith('}'):
+            import json
+            parsed = json.loads(response)
+            if 'career_path' in parsed:
+                response = parsed['career_path']
+        
+        print("✅ Berhasil generate career path")
+        return response
+        
+    except Exception as e:
+        print(f"❌ Error generating career path: {e}")
+        # Return fallback jika AI gagal
+        return f"""
+### 📍 Posisi Anda Sekarang
+Anda berada di level **{current_level}** untuk okupasi **{okupasi_nama}** dengan skor asesmen {skor}/100.
+
+### 🎯 Target 6-12 Bulan
+1. Tingkatkan skill: {skill_gap}
+2. Selesaikan minimal 2 project portfolio
+3. Dapatkan 1 sertifikasi profesional
+
+### 🚀 Target 12-24 Bulan
+1. Naik ke posisi {okupasi_nama} Senior
+2. Mentoring junior developer
+3. Kontribusi ke open source community
+
+### 📜 Sertifikasi yang Direkomendasikan
+- AWS Certified Solutions Architect
+- Google Cloud Professional
+- Kubernetes Administrator (CKA)
+
+### 💡 Tips
+- Aktif di LinkedIn dan GitHub
+- Ikut komunitas lokal (meetup, workshop)
+- Bangun personal brand melalui blog teknis
+"""
 
 
 def get_national_dashboard_data():
