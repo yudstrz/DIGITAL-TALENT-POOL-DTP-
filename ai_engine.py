@@ -22,7 +22,7 @@ except ImportError:
 # --- KONFIGURASI GEMINI ---
 GEMINI_API_KEY = "AIzaSyCR8xgDIv5oYBaDmMyuGGWjqpFi7U8SGA4"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-GEMINI_MODEL = "gemini-1.5-flash"  # Model tercepat dan gratis
+GEMINI_MODEL = "gemini-1.5-flash-latest"  # Nama model yang benar untuk v1beta
 
 # Jumlah soal asesmen
 JUMLAH_SOAL = 5
@@ -59,20 +59,32 @@ def call_gemini_api(prompt: str) -> str:
         "Content-Type": "application/json"
     }
     
+    # Instruksi JSON di dalam prompt
+    json_instruction = """
+
+PENTING: Anda HARUS merespons dengan JSON yang valid. Tidak ada teks tambahan di luar JSON.
+Format yang diharapkan:
+{
+  "questions": [
+    {"id": "q1", "teks": "...", "opsi": ["...", "...", "...", "..."], "jawaban_benar": "..."},
+    {"id": "q2", "teks": "...", "opsi": ["...", "...", "...", "..."], "jawaban_benar": "..."}
+  ]
+}
+"""
+    
     payload = {
         "contents": [
             {
                 "parts": [
                     {
-                        "text": prompt
+                        "text": prompt + json_instruction
                     }
                 ]
             }
         ],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 3000,
-            "responseMimeType": "application/json"  # Force JSON output
+            "maxOutputTokens": 3000
         }
     }
     
@@ -96,7 +108,19 @@ def call_gemini_api(prompt: str) -> str:
         if 'candidates' not in result or len(result['candidates']) == 0:
             raise Exception(f"Response API tidak valid: {result}")
         
+        # Ambil text dari response
         content = result['candidates'][0]['content']['parts'][0]['text']
+        
+        # Clean markdown code fence jika ada
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+        
         print(f"✅ Berhasil mendapatkan response dari Gemini")
         return content
         
