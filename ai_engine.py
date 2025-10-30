@@ -596,99 +596,68 @@ def validate_assessment(answers: dict, questions: list):
     print(f"Hasil Asesmen: {correct_answers}/{total_questions} benar = Skor {skor}/100, Level {level}")
     return skor, level
 
+def analyze_career_profile_ai(profil_teks):
+    # Contoh hasil dummy JSON untuk testing Streamlit
+    return {
+        "career_analysis": {
+            "profil_input": profil_teks,
+            "analisis_profesional": [
+                {
+                    "judul": "Rekomendasi Jalur Karier",
+                    "konten": [
+                        {"okupasi": "Data Analyst", "alasan": "Kesesuaian tinggi dengan minat analisis dan Python."},
+                        {"okupasi": "Machine Learning Engineer", "alasan": "Cocok karena pengalaman statistik dan pemrograman."}
+                    ]
+                }
+            ],
+            "saran_aktivitas": {
+                "Langkah Pengembangan": "Pelajari cloud computing (AWS/GCP) dan CI/CD pipelines.",
+                "Kegiatan Disarankan": "Ikuti pelatihan online terkait Data Engineering atau Agile Project Management."
+            }
+        }
+    }
 
-def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str):
-    """Mendapatkan rekomendasi pekerjaan dan pelatihan"""
-    print(f"Mencari rekomendasi untuk {okupasi_id}...")
-    
-    rekomendasi_pekerjaan = []
-    rekomendasi_pelatihan = []
-
-    if not st.session_state.get('ai_initialized'):
-        st.error("AI Engine belum siap.")
-        return [], []
-
-    try:
-        # Rekomendasi Pekerjaan (Semantic Search)
-        if st.session_state.get('job_vectors') is not None and st.session_state.job_vectors.shape[0] > 0:
-            query_vector = st.session_state.vectorizer.transform([profil_teks])
-            scores = cosine_similarity(query_vector, st.session_state.job_vectors)
-            top_3_indices = scores.argsort()[0][-3:][::-1]
-            rekomendasi_pekerjaan = st.session_state.job_data.iloc[top_3_indices].to_dict('records')
-        else:
-            print("Tidak ada data lowongan.")
-            
-    except Exception as e:
-        st.error(f"Error saat mencari rekomendasi pekerjaan: {e}")
-
-    try:
-        # Rekomendasi Pelatihan berdasarkan gap
-        gaps = [g.strip() for g in gap_keterampilan.split(',')]
-        for gap in gaps:
-            rekomendasi_pelatihan.append(
-                f"Kursus Intensif: {gap} (Platform: Dicoding/Coursera/LinkedIn Learning)"
-            )
-    except Exception as e:
-        st.error(f"Error saat membuat rekomendasi pelatihan: {e}")
-
-    return rekomendasi_pekerjaan, rekomendasi_pelatihan
-
-    import json
-import streamlit as st
-
-def get_personalized_career_path(okupasi_nama: str, skor: int, skill_gap: str, profile_text: str):
+def get_recommendations(mapped_okupasi_id, skill_gap, profil_teks):
     """
-    🚀 Membuat roadmap karier personal berbasis AI (Gemini)
+    Fungsi ini memberikan dua output:
+    - jobs: daftar rekomendasi pekerjaan (list of dict)
+    - trainings: daftar rekomendasi pelatihan (list of string)
     """
-    try:
-        prompt = f"""
-        Anda adalah asisten karier profesional.
-        Berdasarkan data berikut, buat roadmap karier yang realistis dan personal.
+    # Dummy contoh data (bisa kamu ganti nanti dengan query AI/DB)
+    job_samples = [
+        {
+            "Posisi": "Data Analyst",
+            "Perusahaan": "Tech Innovate",
+            "Lokasi": "Jakarta",
+            "Keterampilan_Dibutuhkan": "Python, SQL, Power BI",
+            "Deskripsi_Pekerjaan": "Menganalisis data untuk mendukung keputusan bisnis."
+        },
+        {
+            "Posisi": "Machine Learning Engineer",
+            "Perusahaan": "AI Labs",
+            "Lokasi": "Bandung",
+            "Keterampilan_Dibutuhkan": "Python, TensorFlow, Cloud (AWS/GCP)",
+            "Deskripsi_Pekerjaan": "Membangun model AI dan menerapkannya ke sistem produksi."
+        }
+    ]
 
-        === PROFIL PESERTA ===
-        {profile_text}
+    training_samples = [
+        "Pelatihan Cloud Computing (AWS/GCP Fundamentals)",
+        "Kursus CI/CD Pipelines untuk DevOps Engineer",
+        "Workshop Manajemen Proyek Agile",
+        "Bootcamp Machine Learning Intermediate"
+    ]
 
-        === OKUPASI YANG DITUJU ===
-        {okupasi_nama}
+    # Filter sesuai skill gap dan profil
+    matched_jobs = [j for j in job_samples if any(skill.lower() in j["Keterampilan_Dibutuhkan"].lower() for skill in skill_gap)]
+    if not matched_jobs:
+        matched_jobs = random.sample(job_samples, k=min(2, len(job_samples)))
 
-        === SKOR ASESMEN ===
-        {skor} / 100
+    matched_trainings = [t for t in training_samples if any(skill.lower() in t.lower() for skill in skill_gap)]
+    if not matched_trainings:
+        matched_trainings = random.sample(training_samples, k=min(2, len(training_samples)))
 
-        === SKILL GAP ===
-        {skill_gap}
-
-        Tampilkan roadmap karier dalam format Markdown.
-        Gunakan struktur yang rapi dengan heading dan bullet point, misalnya:
-
-        ## Tahap 1: Peningkatan Dasar
-        - Pelajari konsep ...
-        - Ikuti pelatihan ...
-        - Target waktu: 1 bulan
-
-        ## Tahap 2: Penguatan Kompetensi
-        - Terapkan skill ...
-        - Ikuti proyek mini ...
-        - Target waktu: 2–3 bulan
-
-        ## Tahap 3: Profesionalisasi
-        - Melamar ke posisi ...
-        - Kembangkan portofolio ...
-        - Bergabung di komunitas profesional ...
-
-        Tambahkan catatan motivasional singkat di akhir.
-        """
-
-        # Panggil fungsi yang kamu tambahkan sebelumnya
-        from ai_engine import call_gemini_api, sanitize_json_response
-
-        ai_response = call_gemini_api(prompt)
-
-        # Gemini biasanya bisa mengembalikan Markdown langsung, jadi kita tampilkan apa adanya
-        return ai_response.strip()
-
-    except Exception as e:
-        st.error(f"Gagal menghasilkan roadmap AI: {e}")
-        return "❌ Terjadi kesalahan saat menghasilkan roadmap karier AI."
+    return matched_jobs, matched_trainings
 
 def get_national_dashboard_data():
     """Mengambil data untuk dashboard nasional"""
