@@ -1,7 +1,8 @@
 streamlit
 pandas
 openpyxl
-scikit-learn  # PENTING: Untuk simulasi Semantic Search & Rekomendasi
+scikit-learn
+pypdf python-docx
 
 # Library untuk implementasi NYATA (bisa ditambahkan nanti):
 # sentence-transformers
