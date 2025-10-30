@@ -25,10 +25,50 @@ if st.button("🔎 Analisis dengan AI"):
         with st.spinner("AI sedang menganalisis profilmu..."):
             hasil_analisis = analyze_career_profile_ai(user_profile)
             st.success("✅ Analisis berhasil!")
-            st.markdown(hasil_analisis)
+
+            # --- Coba parse hasil JSON ---
+            try:
+                data = json.loads(hasil_analisis)
+                analisis = data.get("career_analysis", {})
+
+                st.markdown("### 🧭 Hasil Analisis Karier")
+                st.markdown(f"**Profil Input:** {analisis.get('profil_input', '-')}")
+                st.divider()
+
+                # --- Bagian utama analisis profesional ---
+                if "analisis_profesional" in analisis:
+                    for bagian in analisis["analisis_profesional"]:
+                        st.markdown(f"#### 📘 {bagian.get('judul', '')}")
+                        konten = bagian.get("konten", [])
+
+                        # Kalau konten berupa list of dict
+                        if isinstance(konten, list):
+                            for item in konten:
+                                if isinstance(item, dict):
+                                    if "okupasi" in item:
+                                        st.markdown(f"**Okupasi:** {item['okupasi']}")
+                                    if "alasan" in item:
+                                        st.markdown(f"**Alasan:** {item['alasan']}")
+                                    if "skill_utama" in item:
+                                        st.markdown(f"**Skill Utama:** {item['skill_utama']}")
+                                else:
+                                    st.write(f"- {item}")
+                        else:
+                            st.write(konten)
+                        st.markdown("---")
+
+                # --- Saran Aktivitas (opsional) ---
+                if "saran_aktivitas" in analisis:
+                    st.markdown("### 🚀 Saran Aktivitas & Langkah Pengembangan")
+                    for key, val in analisis["saran_aktivitas"].items():
+                        st.markdown(f"**{key.replace('_',' ').title()}**: {val}")
+
+            except json.JSONDecodeError:
+                # Jika gagal parse JSON, tampilkan teks mentah
+                st.markdown("**Hasil AI (teks mentah):**")
+                st.code(hasil_analisis, language="json")
     else:
         st.warning("Mohon isi deskripsi profil terlebih dahulu.")
-
 st.divider()
 
 # --- Validasi Asesmen ---
