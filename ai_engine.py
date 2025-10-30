@@ -5,19 +5,33 @@ import streamlit as st
 import json
 import logging # Baik untuk debugging
 
+# File: ai_engine.py
+
+import google.generativeai as genai
+import streamlit as st
+import json
+import logging 
+
 # --- Konfigurasi API ---
-# Ambil API key dari Streamlit secrets
-# Pastikan Anda sudah menambahkannya di file .streamlit/secrets.toml
+# 🛑 PERINGATAN: Hardcoding API key tidak aman untuk produksi.
+# Ganti "MASUKKAN_API_KEY_ANDA_DI_SINI" dengan key Anda.
+GOOGLE_API_KEY = "AIzaSyCR8xgDIv5oYBaDmMyuGGWjqpFi7U8SGA4" 
+
+if GOOGLE_API_KEY == "AIzaSyCR8xgDIv5oYBaDmMyuGGWjqpFi7U8SGA4":
+    st.error("API Key belum dimasukkan. Harap edit file ai_engine.py dan masukkan API key Anda.")
+    st.stop()
+
 try:
-    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=GOOGLE_API_KEY)
-except (KeyError, FileNotFoundError):
-    logging.error("❌ GOOGLE_API_KEY tidak ditemukan di st.secrets.")
-    st.error("Konfigurasi API Key Gemini tidak ditemukan. Harap set di st.secrets.")
+except Exception as e:
+    st.error(f"Gagal mengkonfigurasi API Key: {e}")
+    st.stop()
 
 # Konstanta untuk model
-MODEL_NAME = "gemini-flash-latest"
+MODEL_NAME = "gemini-1.5-pro-latest" # Anda menggunakan flash, saya ganti ke pro untuk kualitas soal
 JUMLAH_SOAL = 5 # Tentukan jumlah soal yang ingin Anda buat
+
+# ... (sisa kode ai_engine.py Anda) ...
 
 def generate_assessment_questions(okupasi_id: str):
     """
