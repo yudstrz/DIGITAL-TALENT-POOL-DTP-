@@ -27,9 +27,13 @@ if st.button("🔎 Analisis dengan AI"):
             hasil_analisis = analyze_career_profile_ai(user_profile)
             st.success("✅ Analisis berhasil!")
 
-            # --- Coba parse hasil JSON ---
             try:
-                data = json.loads(hasil_analisis)
+                # Jika hasil sudah berupa dict, langsung pakai
+                if isinstance(hasil_analisis, dict):
+                    data = hasil_analisis
+                else:
+                    data = json.loads(hasil_analisis)
+            
                 analisis = data.get("career_analysis", {})
 
                 st.markdown("### 🧭 Hasil Analisis Karier")
