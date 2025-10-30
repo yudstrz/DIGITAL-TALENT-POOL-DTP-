@@ -212,6 +212,30 @@ def extract_profile_entities(raw_cv: str):
     return profile_text
 
 
+def sanitize_json_response(text: str) -> str:
+    """
+    Membersihkan response JSON dari AI untuk menghindari error parsing.
+    
+    Args:
+        text: Raw JSON string dari AI
+        
+    Returns:
+        Cleaned JSON string
+    """
+    # 1. Hapus escape sequence yang invalid
+    # Replace \e, \x, dll yang bukan \n, \t, \r, \", \\, \/
+    text = re.sub(r'\\(?![ntr"\\/])', '', text)
+    
+    # 2. Fix kutip tunggal di dalam string yang mungkin jadi masalah
+    # Ganti \'  dengan ' (karena dalam JSON string pakai double quote)
+    text = text.replace("\\'", "'")
+    
+    # 3. Hapus whitespace berlebih
+    text = text.strip()
+    
+    return text
+
+
 def map_profile_to_pon(profile_text: str):
     """Pemetaan profil ke PON TIK menggunakan semantic search"""
     print(f"Memetakan profil: {profile_text[:50]}...")
@@ -287,6 +311,7 @@ Buat TEPAT {JUMLAH_SOAL} soal pilihan ganda untuk menguji kompetensi seorang kan
 5. Hanya 1 jawaban yang benar per soal
 6. Opsi jawaban harus masuk akal dan tidak obvious
 7. Gunakan bahasa Indonesia yang profesional
+8. HINDARI penggunaan kutip tunggal atau karakter khusus yang bisa merusak JSON
 
 **Format Output JSON:**
 {{
@@ -309,13 +334,18 @@ Buat TEPAT {JUMLAH_SOAL} soal pilihan ganda untuk menguji kompetensi seorang kan
 PENTING: 
 - TEPAT {JUMLAH_SOAL} soal (q1 sampai q{JUMLAH_SOAL})
 - Field "jawaban_benar" harus persis sama dengan salah satu opsi
-- Output HANYA JSON, tanpa teks tambahan"""
+- Output HANYA JSON valid, tanpa teks tambahan
+- Jangan gunakan escape sequence seperti \\n atau \\t di dalam string
+- Gunakan spasi biasa, bukan tab atau newline di dalam teks soal"""
 
     try:
         with st.spinner(f"🤖 Gemini AI sedang membuat {JUMLAH_SOAL} soal untuk {okupasi_nama}..."):
             response_text = call_gemini_api(prompt)
         
         print(f"Raw Gemini Response (first 500 chars): {response_text[:500]}")
+        
+        # Sanitasi response untuk menghindari error JSON parsing
+        response_text = sanitize_json_response(response_text)
         
         # Parse JSON
         response_json = json.loads(response_text)
@@ -366,9 +396,29 @@ PENTING:
         return questions
         
     except json.JSONDecodeError as e:
-        error_msg = f"❌ Error parsing JSON dari AI: {e}\n\nResponse AI:\n{response_text[:1000]}"
-        st.error(error_msg)
-        raise Exception(error_msg)
+        # Coba sekali lagi dengan cleaning lebih agresif
+        try:
+            # Ekstrak hanya bagian array questions jika ada
+            match = re.search(r'"questions"\s*:\s*(\[.*\])', response_text, re.DOTALL)
+            if match:
+                questions_json = match.group(1)
+                # Wrap kembali dalam object
+                cleaned = f'{{"questions": {questions_json}}}'
+                cleaned = sanitize_json_response(cleaned)
+                response_json = json.loads(cleaned)
+                
+                if "questions" in response_json:
+                    questions = response_json["questions"]
+                    print(f"✅ Berhasil parse JSON setelah cleaning agresif")
+                else:
+                    raise ValueError("Tidak ada field 'questions' setelah re-parse")
+            else:
+                raise ValueError("Tidak bisa ekstrak array questions dari response")
+                
+        except Exception as retry_error:
+            error_msg = f"❌ Error parsing JSON dari AI: {e}\n\nRetry Error: {retry_error}\n\nResponse AI (first 1000 chars):\n{response_text[:1000]}"
+            st.error(error_msg)
+            raise Exception(error_msg)
         
     except requests.exceptions.RequestException as e:
         error_msg = f"❌ Error koneksi ke API: {e}"
