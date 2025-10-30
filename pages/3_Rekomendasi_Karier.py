@@ -1,5 +1,6 @@
 # pages/3_💡_Rekomendasi_Karier.py
 import streamlit as st
+import json   # ✅ Tambahkan ini!
 from ai_engine import get_recommendations, analyze_career_profile_ai
 
 # --- Konfigurasi Halaman ---
