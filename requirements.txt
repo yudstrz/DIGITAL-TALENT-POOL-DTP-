@@ -4,6 +4,7 @@ openpyxl
 scikit-learn
 pypdf
 python-docx
+google.generativeai
 
 # Library untuk implementasi NYATA (bisa ditambahkan nanti):
 # sentence-transformers
