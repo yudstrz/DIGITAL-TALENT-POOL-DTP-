@@ -9,23 +9,15 @@ import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# --- Cache (Simulasi Database Vektor yang sudah di-load) ---
-if 'ai_initialized' not in st.session_state:
-    st.session_state.ai_initialized = False
-    st.session_state.vectorizer = None 
-    st.session_state.pon_vectors = None   
-    st.session_state.pon_data = None      
-    st.session_state.job_vectors = None   
-    st.session_state.job_data = None      
+# --- BLOK INISIALISASI DI ATAS SUDAH DIHAPUS ---
+# (Karena sudah dipindah ke app.py)
 
 def load_excel_sheet(file_path, sheet_name):
     """Fungsi bantuan untuk membaca Excel dengan aman dan membersihkan nama kolom."""
     try:
-        # --- INI ADALAH PERBAIKANNYA ---
         # Menambahkan 'header=1' untuk memberi tahu Pandas
         # bahwa nama kolom ada di BARIS KEDUA (indeks 1)
         df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
-        # ---------------------------------
         
         df.columns = df.columns.str.strip()
         df = df.fillna('') 
@@ -39,6 +31,7 @@ def initialize_ai_engine():
     Satu kali setup. Membangun "database vektor" (simulasi)
     dari file Excel. Ini meniru proses 'embedding' data PON TIK.
     """
+    # Sekarang baris ini aman, karena 'ai_initialized' PASTI ada
     if st.session_state.ai_initialized:
         return True # Sudah di-load
 
