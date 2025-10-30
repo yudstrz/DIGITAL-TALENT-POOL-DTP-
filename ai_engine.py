@@ -10,21 +10,24 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # --- Cache (Simulasi Database Vektor yang sudah di-load) ---
-# Ini akan menyimpan "model" AI kita agar tidak perlu di-load ulang setiap kali
 if 'ai_initialized' not in st.session_state:
     st.session_state.ai_initialized = False
-    st.session_state.vectorizer = None # Model untuk mengubah teks jadi vektor
-    st.session_state.pon_vectors = None   # Vektor dari semua okupasi PON
-    st.session_state.pon_data = None      # Data PON (OkupasiID, Nama, dll)
-    st.session_state.job_vectors = None   # Vektor dari semua lowongan kerja
-    st.session_state.job_data = None      # Data Lowongan
+    st.session_state.vectorizer = None 
+    st.session_state.pon_vectors = None   
+    st.session_state.pon_data = None      
+    st.session_state.job_vectors = None   
+    st.session_state.job_data = None      
 
 def load_excel_sheet(file_path, sheet_name):
     """Fungsi bantuan untuk membaca Excel dengan aman dan membersihkan nama kolom."""
     try:
-        df = pd.read_excel(file_path, sheet_name=sheet_name)
+        # --- INI ADALAH PERBAIKANNYA ---
+        # Menambahkan 'header=1' untuk memberi tahu Pandas
+        # bahwa nama kolom ada di BARIS KEDUA (indeks 1)
+        df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
+        # ---------------------------------
+        
         df.columns = df.columns.str.strip()
-        # Mengisi data kosong (NaN) dengan string kosong agar tidak error
         df = df.fillna('') 
         return df
     except Exception as e:
@@ -52,7 +55,6 @@ def initialize_ai_engine():
             df_jobs = pd.DataFrame(columns=['OkupasiID', 'Deskripsi_Pekerjaan', 'Posisi', 'Perusahaan', 'Keterampilan_Dibutuhkan']) # Buat kosong jika tidak ada
 
         # 3. Buat "Embedding" (Simulasi dengan TF-IDF)
-        # Di dunia nyata: Ganti TfidfVectorizer dengan SentenceTransformer
         vectorizer = TfidfVectorizer(stop_words='english', max_features=1000)
         
         # Gabungkan teks dari PON TIK untuk "dipelajari" oleh model
@@ -82,6 +84,13 @@ def initialize_ai_engine():
         print("--- AI Engine Berhasil Diinisialisasi (Simulasi Vector DB) ---")
         return True
 
+    except KeyError as e:
+        # Menampilkan error yang lebih spesifik jika 'header=1' masih salah
+        st.error(f"Error saat inisialisasi AI Engine: KeyError {e}.")
+        st.error(f"Ini berarti kolom {e} tidak ditemukan. Pastikan ejaan di baris 2 Excel Anda sudah benar.")
+        st.error(f"Kolom yang terbaca dari Excel adalah: {list(df_pon.columns)}")
+        st.session_state.ai_initialized = False
+        return False
     except Exception as e:
         st.error(f"Error saat inisialisasi AI Engine: {e}")
         st.session_state.ai_initialized = False
@@ -92,10 +101,8 @@ def extract_profile_entities(raw_cv: str):
     """
     SIMULASI: Ekstraksi entitas (NER/LLM) dari CV mentah.
     """
-    # Simulasi sederhana: ambil semua kata unik yang panjangnya > 3
     words = set(re.findall(r'\b\w{4,}\b', raw_cv.lower()))
     profile_text = ' '.join(words)
-    
     print(f"Hasil Ekstraksi (Simulasi): {profile_text[:100]}...")
     return profile_text
 
@@ -112,22 +119,15 @@ def map_profile_to_pon(profile_text: str):
         return None, None, 0, ""
 
     try:
-        # 1. Ubah query (profil) menjadi vektor
         query_vector = st.session_state.vectorizer.transform([profile_text])
-        
-        # 2. Hitung skor kecocokan (Cosine Similarity)
         scores = cosine_similarity(query_vector, st.session_state.pon_vectors)
-        
-        # 3. Dapatkan hasil terbaik
         best_match_index = scores.argmax()
         best_score = scores[0, best_match_index]
         
-        # 4. Ambil data okupasi dari hasil terbaik
         pon_data = st.session_state.pon_data.iloc[best_match_index]
         okupasi_id = pon_data['OkupasiID']
         okupasi_nama = pon_data['Okupasi']
         
-        # 5. Simulasi RAG (Retrieval-Augmented Generation) untuk Skill Gap
         gap_keterampilan = "Cloud Computing (AWS/GCP), CI/CD Pipelines, Manajemen Proyek Agile"
         
         print(f"Hasil Pemetaan: {okupasi_nama} (Skor: {best_score:.2f})")
@@ -243,9 +243,6 @@ def get_national_dashboard_data():
         lokasi_counts = df_talenta['Lokasi'].value_counts().reset_index()
         lokasi_counts.columns = ['Lokasi', 'Jumlah']
         
-        # (Ini data dummy, idealnya ada tabel master Lokasi -> Lat/Lon)
-        # --- INI ADALAH BAGIAN YANG ERROR ---
-        # Pastikan tidak ada string yang terpotong
         lokasi_map = {
             "Jakarta": {"lat": -6.20, "lon": 106.81},
             "Bandung": {"lat": -6.91, "lon": 107.61},
@@ -253,11 +250,10 @@ def get_national_dashboard_data():
             "Yogyakarta": {"lat": -7.79, "lon": 110.36},
             "Medan": {"lat": 3.59, "lon": 98.67}
         }
-        # --- BATAS BAGIAN ERROR ---
 
         lokasi_counts['lat'] = lokasi_counts['Lokasi'].apply(lambda x: lokasi_map.get(x, {}).get('lat', 0))
         lokasi_counts['lon'] = lokasi_counts['Lokasi'].apply(lambda x: lokasi_map.get(x, {}).get('lon', 0))
-        lokasi_counts = lokasi_counts[lokasi_counts['lat'] != 0] # Hanya tampilkan yg ada di map
+        lokasi_counts = lokasi_counts[lokasi_counts['lat'] != 0]
         lokasi_counts['size'] = lokasi_counts['Jumlah']
         sebaran_lokasi = lokasi_counts
     
