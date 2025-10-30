@@ -2,7 +2,8 @@ streamlit
 pandas
 openpyxl
 scikit-learn
-pypdf python-docx
+pypdf
+python-docx
 
 # Library untuk implementasi NYATA (bisa ditambahkan nanti):
 # sentence-transformers
