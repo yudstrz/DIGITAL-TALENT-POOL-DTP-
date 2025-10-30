@@ -20,9 +20,9 @@ except ImportError:
     st.error("⚠️ Library 'requests' tidak ditemukan. Install dengan: pip install requests")
 
 # --- KONFIGURASI OLLAMA ---
-OLLAMA_BASE_URL = "https://api.ollama.cloud/v1"
-OLLAMA_API_KEY = "a79463dcd742441692f8334f300aa248.9GtNJYnyCTdnIUgWbJguIxVh"
-OLLAMA_MODEL = "gpt-oss:20b-cloud"  # GPT-OSS 20B (Recommended)
+OLLAMA_BASE_URL = "https://api.hyperbolic.xyz/v1"
+OLLAMA_API_KEY = "ce7b9d99128d4b4dbddc089ca8bdbbb3.gpdZhQGkdwLOie9s_weyKGj1"
+OLLAMA_MODEL = "meta-llama/Llama-3.3-70B-Instruct"  # Llama 3.3 70B
 
 def get_api_keys():
     """Mendapatkan API keys dari secrets atau hardcoded"""
@@ -43,7 +43,7 @@ GEMINI_API_KEY, OLLAMA_API_KEY = get_api_keys()
 
 def call_ollama_api(prompt: str, max_tokens: int = 4000) -> str:
     """
-    Memanggil Ollama API untuk generate text.
+    Memanggil Hyperbolic API (kompatibel dengan OpenAI) untuk generate text.
     
     Args:
         prompt: Prompt untuk AI
@@ -64,12 +64,17 @@ def call_ollama_api(prompt: str, max_tokens: int = 4000) -> str:
         "model": OLLAMA_MODEL,
         "messages": [
             {
+                "role": "system",
+                "content": "Anda adalah expert dalam bidang TIK Indonesia yang membuat soal asesmen kompetensi profesional. Anda HARUS menghasilkan output dalam format JSON yang valid."
+            },
+            {
                 "role": "user",
                 "content": prompt
             }
         ],
         "max_tokens": max_tokens,
-        "temperature": 0.7
+        "temperature": 0.7,
+        "response_format": {"type": "json_object"}  # Force JSON output
     }
     
     try:
@@ -77,15 +82,36 @@ def call_ollama_api(prompt: str, max_tokens: int = 4000) -> str:
             f"{OLLAMA_BASE_URL}/chat/completions",
             headers=headers,
             json=payload,
-            timeout=60
+            timeout=120  # Increase timeout untuk model besar
         )
+        
+        # Log untuk debugging
+        print(f"API Response Status: {response.status_code}")
+        
         response.raise_for_status()
         
         result = response.json()
-        return result['choices'][0]['message']['content']
+        
+        # Cek struktur response
+        if 'choices' not in result or len(result['choices']) == 0:
+            raise Exception(f"Response API tidak valid: {result}")
+        
+        content = result['choices'][0]['message']['content']
+        return content
+        
+    except requests.exceptions.HTTPError as e:
+        error_detail = ""
+        try:
+            error_detail = response.json()
+        except:
+            error_detail = response.text
+        raise Exception(f"HTTP Error {response.status_code}: {error_detail}")
+        
+    except requests.exceptions.Timeout:
+        raise Exception("Request timeout - API membutuhkan waktu terlalu lama (>120s)")
         
     except requests.exceptions.RequestException as e:
-        raise Exception(f"Error calling Ollama API: {e}")
+        raise Exception(f"Error calling Hyperbolic API: {e}")
 
 
 def load_excel_sheet(file_path, sheet_name):
@@ -216,10 +242,8 @@ def generate_assessment_questions(okupasi_id: str):
     except Exception as e:
         raise Exception(f"Error mengambil data okupasi: {e}")
     
-    # Generate soal menggunakan Ollama
-    prompt = f"""Anda adalah expert dalam bidang TIK Indonesia yang membuat soal asesmen kompetensi profesional.
-
-Buat TEPAT 10 soal pilihan ganda untuk menguji kompetensi seorang kandidat pada okupasi berikut:
+    # Generate soal menggunakan Hyperbolic API (Llama 3.3 70B)
+    prompt = f"""Buat TEPAT 10 soal pilihan ganda untuk menguji kompetensi seorang kandidat pada okupasi berikut:
 
 **Okupasi:** {okupasi_nama}
 **Unit Kompetensi:** {unit_kompetensi}
@@ -234,52 +258,52 @@ Buat TEPAT 10 soal pilihan ganda untuk menguji kompetensi seorang kandidat pada 
 6. Opsi jawaban harus masuk akal dan tidak obvious
 7. Gunakan bahasa Indonesia yang profesional
 
-**Format Output (JSON ARRAY):**
-Berikan HANYA JSON array (tanpa teks tambahan, tanpa markdown, tanpa penjelasan):
-
-[
-  {{
-    "id": "q1",
-    "teks": "Pertanyaan lengkap dalam 1-3 kalimat...",
-    "opsi": ["Opsi A yang lengkap", "Opsi B yang lengkap", "Opsi C yang lengkap", "Opsi D yang lengkap"],
-    "jawaban_benar": "Opsi A yang lengkap"
-  }},
-  {{
-    "id": "q2",
-    "teks": "...",
-    "opsi": [...],
-    "jawaban_benar": "..."
-  }}
-]
+**Format Output JSON:**
+{{
+  "questions": [
+    {{
+      "id": "q1",
+      "teks": "Pertanyaan lengkap dalam 1-3 kalimat...",
+      "opsi": ["Opsi A yang lengkap", "Opsi B yang lengkap", "Opsi C yang lengkap", "Opsi D yang lengkap"],
+      "jawaban_benar": "Opsi A yang lengkap"
+    }},
+    {{
+      "id": "q2",
+      "teks": "...",
+      "opsi": ["...", "...", "...", "..."],
+      "jawaban_benar": "..."
+    }}
+  ]
+}}
 
 PENTING: 
-- Output HANYA JSON array
 - TEPAT 10 soal (q1 sampai q10)
-- Field "jawaban_benar" harus persis sama dengan salah satu opsi"""
+- Field "jawaban_benar" harus persis sama dengan salah satu opsi
+- Output harus valid JSON"""
 
     try:
         with st.spinner(f"🤖 AI sedang membuat 10 soal untuk {okupasi_nama}..."):
             response_text = call_ollama_api(prompt, max_tokens=4000)
         
-        # Clean JSON (hapus markdown fence jika ada)
-        response_text = response_text.strip()
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        if response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-        response_text = response_text.strip()
+        print(f"Raw AI Response (first 500 chars): {response_text[:500]}")
         
         # Parse JSON
-        questions = json.loads(response_text)
+        response_json = json.loads(response_text)
+        
+        # Cek apakah ada wrapper "questions"
+        if isinstance(response_json, dict) and "questions" in response_json:
+            questions = response_json["questions"]
+        elif isinstance(response_json, list):
+            questions = response_json
+        else:
+            raise ValueError(f"Format response tidak dikenali: {type(response_json)}")
         
         # Validasi ketat
         if not isinstance(questions, list):
             raise ValueError("Output AI bukan list/array")
         
         if len(questions) != 10:
-            st.warning(f"AI menghasilkan {len(questions)} soal, bukan 10. Mengambil 10 pertama atau menambah dummy.")
+            st.warning(f"AI menghasilkan {len(questions)} soal, bukan 10. Menyesuaikan...")
             # Jika kurang dari 10, tambahkan dummy
             while len(questions) < 10:
                 questions.append({
@@ -308,7 +332,7 @@ PENTING:
             q["id"] = f"q{i+1}"
             q["tipe"] = "pilihan_ganda"
         
-        print(f"✅ Berhasil generate {len(questions)} soal dengan AI (Ollama GPT-OSS 20B)")
+        print(f"✅ Berhasil generate {len(questions)} soal dengan AI (Llama 3.3 70B)")
         return questions
         
     except json.JSONDecodeError as e:
@@ -317,7 +341,7 @@ PENTING:
         raise Exception(error_msg)
         
     except requests.exceptions.RequestException as e:
-        error_msg = f"❌ Error koneksi ke Ollama API: {e}"
+        error_msg = f"❌ Error koneksi ke API: {e}"
         st.error(error_msg)
         raise Exception(error_msg)
         
