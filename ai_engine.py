@@ -26,7 +26,7 @@ GEMINI_API_KEY = "AIzaSyCR8xgDIv5oYBaDmMyuGGWjqpFi7U8SGA4"
 # --- ⚠️ AKHIR PERINGATAN ---
 
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-GEMINI_MODEL = "gemini-1.5-flash-latest"  # Nama model yang benar untuk v1beta
+GEMINI_MODEL = "gemini-flash-latest"  # Nama model yang benar untuk v1beta
 
 # Jumlah soal asesmen
 JUMLAH_SOAL = 5
