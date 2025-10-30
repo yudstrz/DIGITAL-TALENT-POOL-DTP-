@@ -49,7 +49,7 @@ def initialize_ai_engine():
         # 2. Load data Lowongan dari Excel
         df_jobs = load_excel_sheet(EXCEL_PATH, SHEET_LOWONGAN)
         if df_jobs is None: 
-            df_jobs = pd.DataFrame(columns=['OkupasiID', 'Deskripsi_Pekerjaan', 'Posisi', 'Perusahaan']) # Buat kosong jika tidak ada
+            df_jobs = pd.DataFrame(columns=['OkupasiID', 'Deskripsi_Pekerjaan', 'Posisi', 'Perusahaan', 'Keterampilan_Dibutuhkan']) # Buat kosong jika tidak ada
 
         # 3. Buat "Embedding" (Simulasi dengan TF-IDF)
         # Di dunia nyata: Ganti TfidfVectorizer dengan SentenceTransformer
@@ -91,37 +91,24 @@ def initialize_ai_engine():
 def extract_profile_entities(raw_cv: str):
     """
     SIMULASI: Ekstraksi entitas (NER/LLM) dari CV mentah.
-    Di dunia nyata: Ini akan memanggil LLM (OpenAI/Llama) atau model NER (spaCy)
-    untuk mengekstrak 'skills', 'experience', 'education' secara terstruktur.
-    
-    Untuk demo ini, kita hanya akan mengekstrak kata-kata kunci.
     """
     # Simulasi sederhana: ambil semua kata unik yang panjangnya > 3
     words = set(re.findall(r'\b\w{4,}\b', raw_cv.lower()))
     profile_text = ' '.join(words)
     
-    # Di dunia nyata, outputnya bisa berupa dict:
-    # return {
-    #     "skills": ["Python", "SQL", "Data Analysis"],
-    #     "experience": ["Data Analyst at PT ABC (2 years)"],
-    #     "education": ["S1 Teknik Informatika UGM"]
-    # }
-    
     print(f"Hasil Ekstraksi (Simulasi): {profile_text[:100]}...")
-    return profile_text # Mengembalikan string yang sudah dibersihkan
+    return profile_text
 
 
 # --- TAHAP 2: Pemetaan Awal ke PON TIK (Semantic Search) ---
 def map_profile_to_pon(profile_text: str):
     """
     SIMULASI: Mencocokkan profil ke PON TIK menggunakan Semantic Search (Vector DB).
-    Di dunia nyata: Ini akan menggunakan FAISS/Milvus + SentenceTransformer.
-    Kita simulasi pakai TF-IDF + Cosine Similarity.
     """
     print(f"Memetakan profil (Tahap 2): {profile_text[:50]}...")
     
-    if not st.session_state.ai_initialized:
-        st.error("AI Engine belum siap. Coba refresh.")
+    if not st.session_state.ai_initialized or st.session_state.pon_vectors is None:
+        st.error("AI Engine belum siap atau data PON TIK kosong. Coba refresh.")
         return None, None, 0, ""
 
     try:
@@ -129,7 +116,6 @@ def map_profile_to_pon(profile_text: str):
         query_vector = st.session_state.vectorizer.transform([profile_text])
         
         # 2. Hitung skor kecocokan (Cosine Similarity)
-        # Ini adalah inti dari "Semantic Search"
         scores = cosine_similarity(query_vector, st.session_state.pon_vectors)
         
         # 3. Dapatkan hasil terbaik
@@ -142,9 +128,6 @@ def map_profile_to_pon(profile_text: str):
         okupasi_nama = pon_data['Okupasi']
         
         # 5. Simulasi RAG (Retrieval-Augmented Generation) untuk Skill Gap
-        # Di dunia nyata: LLM akan membandingkan 'profile_text' dengan 'Kuk_Keywords'
-        # dan 'Unit_Kompetensi' dari 'pon_data' untuk mencari gap.
-        # Simulasi: Kita anggap saja ada gap
         gap_keterampilan = "Cloud Computing (AWS/GCP), CI/CD Pipelines, Manajemen Proyek Agile"
         
         print(f"Hasil Pemetaan: {okupasi_nama} (Skor: {best_score:.2f})")
@@ -159,13 +142,9 @@ def map_profile_to_pon(profile_text: str):
 def generate_assessment_questions(okupasi_id: str):
     """
     SIMULASI: Membuat soal asesmen berbasis AI (AQG).
-    Di dunia nyata: Ini akan memanggil LLM + Few-Shot Prompting.
-    Contoh Prompt: "Kamu adalah asesor. Buat 3 soal pilihan ganda
-    berbasis skenario kerja nyata untuk Unit Kompetensi [ambil dari Excel]..."
     """
     print(f"Membuat soal (Tahap 3) untuk Okupasi ID: {okupasi_id}...")
     
-    # Kita tetap pakai data simulasi, tapi logikanya sudah dijelaskan
     questions = [
         {"id": "q1", "teks": f"Skenario {okupasi_id}: Anda diminta mengoptimalkan query database. Apa langkah pertama Anda?", "tipe": "pilihan_ganda", "opsi": ["Menambah Indeks", "Mengecek Query Plan", "Denormalisasi", "Upgrade Server"], "jawaban_benar": "Mengecek Query Plan"},
         {"id": "q2", "teks": "Bagaimana Anda menangani konflik dependensi library Python di proyek tim?", "tipe": "pilihan_ganda", "opsi": ["Pakai Docker", "Pakai Virtual Environment (venv)", "Force install", "Semua benar tergantung konteks"], "jawaban_benar": "Semua benar tergantung konteks"},
@@ -177,14 +156,9 @@ def generate_assessment_questions(okupasi_id: str):
 def validate_assessment(answers: dict):
     """
     SIMULASI: Menilai jawaban dan validasi level.
-    Di dunia nyata: Ini akan jadi Adaptive Assessment Engine.
-    Jika skor > 90, AI akan memicu 'Probing Loop' dengan soal
-    (dari LLM-based generator) yang lebih sulit (level di atasnya).
-    Jika skor < 50, AI akan memberi soal yang lebih mudah.
     """
     print(f"Memvalidasi jawaban (Tahap 4): {answers}...")
     
-    # Simulasi: Cukup hitung skor acak
     skor = random.randint(60, 95)
     level = "Menengah"
     
@@ -202,8 +176,6 @@ def validate_assessment(answers: dict):
 def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str):
     """
     SIMULASI: Hybrid Recommendation System (LLM + Rule-based).
-    Kita akan simulasi Content-Based Filtering (pakai TF-IDF) untuk
-    lowongan kerja.
     """
     print(f"Mencari rekomendasi (Tahap 5) untuk {okupasi_id}...")
     
@@ -217,15 +189,9 @@ def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str
     # 1. Rekomendasi Pekerjaan (Content-Based Filtering)
     try:
         if st.session_state.job_vectors is not None and st.session_state.job_vectors.shape[0] > 0:
-            # Ubah profil talenta menjadi vektor
             query_vector = st.session_state.vectorizer.transform([profil_teks])
-            
-            # Cari lowongan yang paling mirip dengan profil
             scores = cosine_similarity(query_vector, st.session_state.job_vectors)
-            
-            # Ambil 3 lowongan terbaik (indeksnya)
             top_3_indices = scores.argsort()[0][-3:][::-1]
-            
             rekomendasi_pekerjaan = st.session_state.job_data.iloc[top_3_indices].to_dict('records')
         else:
             print("Tidak ada data lowongan untuk direkomendasikan.")
@@ -234,8 +200,6 @@ def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str
         st.error(f"Error saat mencari rekomendasi pekerjaan: {e}")
 
     # 2. Rekomendasi Pelatihan (Rule-Based dari Skill Gap)
-    # Di dunia nyata: Ini bisa memanggil LLM ("Beri 3 link kursus
-    # untuk skill gap: [gap_keterampilan]")
     try:
         gaps = [g.strip() for g in gap_keterampilan.split(',')]
         for gap in gaps:
@@ -251,8 +215,6 @@ def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str
 def get_national_dashboard_data():
     """
     SIMULASI: Clustering, Agregasi, dan Analisis Tren (Tahap 6 & 7).
-    Ini sekarang akan membaca data *aktual* dari sheet 'Hasil' dan 'Talenta'
-    untuk membuat agregasi.
     """
     print("Mengambil data dashboard (Tahap 6 & 7)...")
     
@@ -265,25 +227,44 @@ def get_national_dashboard_data():
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
     # --- 1. Distribusi Okupasi ---
-    # Gabungkan hasil mapping dengan data PON untuk dapat NAMA okupasi
+    distribusi_okupasi = pd.DataFrame(columns=['Okupasi', 'Jumlah_Talenta']).set_index('Okupasi')
     if 'OkupasiID_Mapped' in df_hasil.columns and 'OkupasiID' in df_pon.columns:
-        merged_data = pd.merge(df_hasil, df_pon, left_on='OkupasiID_Mapped', right_on='OkupasiID', how='left')
-        distribusi_okupasi = merged_data['Okupasi'].value_counts().reset_index()
-        distribusi_okupasi.columns = ['Okupasi', 'Jumlah_Talenta']
-        distribusi_okupasi = distribusi_okupasi.set_index('Okupasi')
-    else:
-        distribusi_okupasi = pd.DataFrame(columns=['Okupasi', 'Jumlah_Talenta']).set_index('Okupasi')
+        if not df_hasil.empty and not df_pon.empty:
+            merged_data = pd.merge(df_hasil, df_pon, left_on='OkupasiID_Mapped', right_on='OkupasiID', how='left')
+            distribusi_okupasi_series = merged_data['Okupasi'].value_counts()
+            if not distribusi_okupasi_series.empty:
+                distribusi_okupasi = distribusi_okupasi_series.reset_index()
+                distribusi_okupasi.columns = ['Okupasi', 'Jumlah_Talenta']
+                distribusi_okupasi = distribusi_okupasi.set_index('Okupasi')
 
     # --- 2. Sebaran Lokasi (Simulasi Clustering) ---
-    # Di dunia nyata: Kita akan cluster (K-Means) lat/lon.
-    # Simulasi: Kita hitung saja jumlah talenta per lokasi
-    if 'Lokasi' in df_talenta.columns:
+    sebaran_lokasi = pd.DataFrame()
+    if 'Lokasi' in df_talenta.columns and not df_talenta.empty:
         lokasi_counts = df_talenta['Lokasi'].value_counts().reset_index()
         lokasi_counts.columns = ['Lokasi', 'Jumlah']
-        # Simulasi Lat/Lon untuk peta
+        
         # (Ini data dummy, idealnya ada tabel master Lokasi -> Lat/Lon)
+        # --- INI ADALAH BAGIAN YANG ERROR ---
+        # Pastikan tidak ada string yang terpotong
         lokasi_map = {
             "Jakarta": {"lat": -6.20, "lon": 106.81},
             "Bandung": {"lat": -6.91, "lon": 107.61},
             "Surabaya": {"lat": -7.25, "lon": 112.75},
-            "Yogyakarta
+            "Yogyakarta": {"lat": -7.79, "lon": 110.36},
+            "Medan": {"lat": 3.59, "lon": 98.67}
+        }
+        # --- BATAS BAGIAN ERROR ---
+
+        lokasi_counts['lat'] = lokasi_counts['Lokasi'].apply(lambda x: lokasi_map.get(x, {}).get('lat', 0))
+        lokasi_counts['lon'] = lokasi_counts['Lokasi'].apply(lambda x: lokasi_map.get(x, {}).get('lon', 0))
+        lokasi_counts = lokasi_counts[lokasi_counts['lat'] != 0] # Hanya tampilkan yg ada di map
+        lokasi_counts['size'] = lokasi_counts['Jumlah']
+        sebaran_lokasi = lokasi_counts
+    
+    # --- 3. Analisis Skill Gap ---
+    skill_gap_umum = pd.DataFrame({
+        'Keterampilan': ['Cloud Computing', 'AI/ML', 'Project Management', 'Data Governance'],
+        'Jumlah_Gap': [random.randint(30, 150) for _ in range(4)]
+    }).set_index('Keterampilan')
+
+    return distribusi_okupasi, sebaran_lokasi, skill_gap_umum
