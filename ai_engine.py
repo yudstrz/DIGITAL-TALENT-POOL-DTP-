@@ -28,7 +28,7 @@ except Exception as e:
     st.stop()
 
 # Konstanta untuk model
-MODEL_NAME = "gemini-1.5-pro-latest" # Anda menggunakan flash, saya ganti ke pro untuk kualitas soal
+MODEL_NAME = "gemini-flash-latestt" # Anda menggunakan flash, saya ganti ke pro untuk kualitas soal
 JUMLAH_SOAL = 5 # Tentukan jumlah soal yang ingin Anda buat
 
 # ... (sisa kode ai_engine.py Anda) ...
