@@ -51,13 +51,10 @@ def parse_cv_data(cv_text):
         
     # 3. Ekstrak Nama (Heuristik sederhana: ambil baris pertama)
     first_line = cv_text.split('\n')[0].strip()
-    # Hindari mengambil email sebagai nama jika itu baris pertama
-    if first_line and '@' not in first_line and 'linkedin.com' not in first_line and len(first_line.split()) < 5: # Asumsi nama tidak terlalu panjang
+    if first_line and '@' not in first_line and 'linkedin.com' not in first_line and len(first_line.split()) < 5: 
         data["nama"] = first_line.title()
         
-    # --- PERBAIKAN: Menambahkan parser lokasi sederhana ---
     # 4. Lokasi (Simulasi Regex sederhana)
-    # Cari kota-kota besar di Indonesia
     lokasi_match = re.search(
         r'(Jakarta|Bandung|Surabaya|Yogyakarta|Jogja|Medan|Semarang|Makassar|Palembang|Denpasar|Depok|Tangerang|Bekasi)', 
         cv_text, 
@@ -68,7 +65,6 @@ def parse_cv_data(cv_text):
         if lokasi_ditemukan == "Jogja":
             lokasi_ditemukan = "Yogyakarta"
         data["lokasi"] = lokasi_ditemukan
-    # --- AKHIR PERBAIKAN ---
     
     return data
 # --- AKHIR TAMBAHAN ---
@@ -90,7 +86,7 @@ st.title("👤 1. Profil Talenta")
 st.markdown("Masukkan data diri dan profil Anda. AI akan menganalisis teks CV Anda untuk dipetakan ke PON TIK.")
 
 
-# --- MODIFIKASI: Inisialisasi session state untuk form ---
+# --- Inisialisasi session state untuk form ---
 if 'form_email' not in st.session_state:
     st.session_state.form_email = ""
 if 'form_nama' not in st.session_state:
@@ -129,13 +125,12 @@ if uploaded_file is not None:
             # Panggil "AI" parser
             parsed_data = parse_cv_data(raw_text)
             
-            # --- PERBAIKAN: Lengkapi update session state ---
+            # Update session state
             st.session_state.form_email = parsed_data["email"]
             st.session_state.form_nama = parsed_data["nama"]
-            st.session_state.form_lokasi = parsed_data["lokasi"] # <-- INI YANG KURANG
+            st.session_state.form_lokasi = parsed_data["lokasi"]
             st.session_state.form_linkedin = parsed_data["linkedin"]
             st.session_state.form_cv_text = parsed_data["full_text"]
-            # --- AKHIR PERBAIKAN ---
             
             st.success("CV berhasil diproses! Silakan periksa dan lengkapi data di bawah.")
         except Exception as e:
@@ -143,20 +138,15 @@ if uploaded_file is not None:
 # --- AKHIR TAMBAHAN ---
 
 st.markdown("---")
-email_input_disabled = bool(st.session_state.form_email) # Kunci email jika sudah terisi
-email = st.text_input(
-    "Email Anda*", 
-    help="Email akan digunakan sebagai ID unik Anda.",
-    key='form_email', # MODIFIKASI: Gunakan key
-    disabled=email_input_disabled
-)
-if email_input_disabled:
-    st.caption("Email Anda (yang diekstrak dari CV) digunakan sebagai ID unik dan tidak dapat diubah.")
+
+# --- PERBAIKAN: Hapus input email yang di LUAR form ---
+# (Blok email yang tadinya di sini sudah dihapus)
+# --- AKHIR PERBAIKAN ---
 
 
 with st.form("profil_form"):
     
-    # --- PERBAIKAN: Pindahkan field 'email' KE DALAM SINI ---
+    # Input email HANYA ada di DALAM form
     st.subheader("Data Akun")
     email_input_disabled = bool(st.session_state.form_email)
     email = st.text_input(
@@ -167,7 +157,6 @@ with st.form("profil_form"):
     )
     if email_input_disabled:
         st.caption("Email Anda (yang diekstrak dari CV) digunakan sebagai ID unik dan tidak dapat diubah.")
-    # --- AKHIR PERBAIKAN ---
 
     st.subheader("Data Diri")
     
@@ -187,18 +176,15 @@ with st.form("profil_form"):
     
     submitted = st.form_submit_button("Simpan & Petakan Profil Saya", disabled=submit_disabled)
 
-# --- (Blok 'if submitted...' Anda di bawah ini tidak perlu diubah) ---
+# --- PERBAIKAN: Logika pemrosesan form DIPINDAHKAN KEMBALI KE SINI ---
 if submitted and st.session_state.form_email and st.session_state.form_nama and st.session_state.form_cv_text:
-    # ... (logika sukses Anda) ...
-else:
-    if submitted:
-        if not st.session_state.form_email:
-            st.warning("Email tidak boleh kosong.")
-        elif not st.session_state.form_nama:
-            st.warning("Nama Lengkap tidak boleh kosong.")
-        elif not st.session_state.form_cv_text:
-            st.warning("Deskripsi CV tidak boleh kosong.")
-    # --- AKHIR PERBAIKAN ---
+    
+    # Ambil data terbaru dari session state (yang mungkin sudah diedit pengguna)
+    email = st.session_state.form_email
+    nama = st.session_state.form_nama
+    lokasi = st.session_state.form_lokasi
+    linkedin = st.session_state.form_linkedin
+    raw_cv_text = st.session_state.form_cv_text
     
     with st.spinner("Menyimpan profil dan menjalankan AI Mapping..."):
         try:
@@ -206,7 +192,6 @@ else:
             
             # TAHAP 1: Ekstraksi Informasi dari CV (NER/LLM)
             st.write("Tahap 1: Mengekstrak entitas dari profil...")
-            # Gunakan fungsi ai_engine Anda yang asli
             profile_text_entities = extract_profile_entities(raw_cv_text) 
             
             # TAHAP 2: Pemetaan Awal ke PON TIK (Semantic Search)
@@ -236,13 +221,13 @@ else:
         
         except Exception as e:
             st.error(f"Terjadi kesalahan: {e}")
+# --- AKHIR PERBAIKAN ---
 else:
     if submitted:
-        # --- MODIFIKASI: Sesuaikan pesan error ---
+        # Pesan error jika validasi gagal
         if not st.session_state.form_email:
             st.warning("Email tidak boleh kosong.")
         elif not st.session_state.form_nama:
             st.warning("Nama Lengkap tidak boleh kosong.")
         elif not st.session_state.form_cv_text:
             st.warning("Deskripsi CV tidak boleh kosong.")
-        # --- AKHIR MODIFIKASI ---
