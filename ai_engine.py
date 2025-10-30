@@ -11,7 +11,7 @@ import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# --- TAMBAHAN: Import untuk Ollama ---
+# --- TAMBAHAN: Import untuk Gemini ---
 try:
     import requests
     REQUESTS_AVAILABLE = True
@@ -19,55 +19,33 @@ except ImportError:
     REQUESTS_AVAILABLE = False
     st.error("⚠️ Library 'requests' tidak ditemukan. Install dengan: pip install requests")
 
-# --- KONFIGURASI API ---
-# Coba beberapa provider AI (fallback otomatis)
-API_PROVIDERS = {
-    "hyperbolic": {
-        "base_url": "https://api.hyperbolic.xyz/v1",
-        "api_key": "ce7b9d99128d4b4dbddc089ca8bdbbb3.gpdZhQGkdwLOie9s_weyKGj1",
-        "model": "meta-llama/Llama-3.3-70B-Instruct"
-    },
-    "groq": {
-        "base_url": "https://api.groq.com/openai/v1",
-        "api_key": "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",  # Free API key Groq
-        "model": "llama-3.3-70b-versatile"
-    }
-}
-
-# Default provider
-CURRENT_PROVIDER = "groq"  # Ganti ke Groq karena Hyperbolic error 401
-OLLAMA_BASE_URL = API_PROVIDERS[CURRENT_PROVIDER]["base_url"]
-OLLAMA_API_KEY = API_PROVIDERS[CURRENT_PROVIDER]["api_key"]
-OLLAMA_MODEL = API_PROVIDERS[CURRENT_PROVIDER]["model"]
+# --- KONFIGURASI GEMINI ---
+GEMINI_API_KEY = "AIzaSyCR8xgDIv5oYBaDmMyuGGWjqpFi7U8SGA4"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_MODEL = "gemini-1.5-flash"  # Model tercepat dan gratis
 
 # Jumlah soal asesmen
-JUMLAH_SOAL = 5  # Dikurangi dari 10 menjadi 5
+JUMLAH_SOAL = 5
 
 def get_api_keys():
     """Mendapatkan API keys dari secrets atau hardcoded"""
-    gemini_key = None
-    ollama_key = OLLAMA_API_KEY
+    gemini_key = GEMINI_API_KEY
     
     # Coba ambil dari Streamlit secrets jika ada
-    if hasattr(st, 'secrets'):
-        if 'GEMINI_API_KEY' in st.secrets:
-            gemini_key = st.secrets['GEMINI_API_KEY']
-        if 'OLLAMA_API_KEY' in st.secrets:
-            ollama_key = st.secrets['OLLAMA_API_KEY']
+    if hasattr(st, 'secrets') and 'GEMINI_API_KEY' in st.secrets:
+        gemini_key = st.secrets['GEMINI_API_KEY']
     
-    return gemini_key, ollama_key
+    return gemini_key
 
-GEMINI_API_KEY, OLLAMA_API_KEY = get_api_keys()
+GEMINI_API_KEY = get_api_keys()
 
 
-def call_ollama_api(prompt: str, max_tokens: int = 3000) -> str:
+def call_gemini_api(prompt: str) -> str:
     """
-    Memanggil AI API (Groq/Hyperbolic) untuk generate text.
-    Dengan auto-fallback jika provider gagal.
+    Memanggil Google Gemini API untuk generate text.
     
     Args:
         prompt: Prompt untuk AI
-        max_tokens: Maximum tokens untuk response
         
     Returns:
         Response text dari AI
@@ -75,91 +53,69 @@ def call_ollama_api(prompt: str, max_tokens: int = 3000) -> str:
     if not REQUESTS_AVAILABLE:
         raise Exception("Library 'requests' tidak tersedia")
     
-    # Try current provider first
-    providers_to_try = [CURRENT_PROVIDER] + [p for p in API_PROVIDERS.keys() if p != CURRENT_PROVIDER]
+    url = f"{GEMINI_BASE_URL}/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     
-    last_error = None
-    for provider_name in providers_to_try:
-        provider = API_PROVIDERS[provider_name]
-        
-        headers = {
-            "Authorization": f"Bearer {provider['api_key']}",
-            "Content-Type": "application/json"
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": prompt
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 3000,
+            "responseMimeType": "application/json"  # Force JSON output
         }
+    }
+    
+    try:
+        print(f"🔄 Memanggil Gemini API ({GEMINI_MODEL})...")
         
-        payload = {
-            "model": provider['model'],
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "Anda adalah expert dalam bidang TIK Indonesia yang membuat soal asesmen kompetensi profesional. Anda HARUS menghasilkan output dalam format JSON yang valid."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "max_tokens": max_tokens,
-            "temperature": 0.7
-        }
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
         
-        # Groq tidak support response_format, hapus untuk Groq
-        if provider_name != "groq":
-            payload["response_format"] = {"type": "json_object"}
+        print(f"API Response Status: {response.status_code}")
         
+        response.raise_for_status()
+        
+        result = response.json()
+        
+        # Parse response Gemini
+        if 'candidates' not in result or len(result['candidates']) == 0:
+            raise Exception(f"Response API tidak valid: {result}")
+        
+        content = result['candidates'][0]['content']['parts'][0]['text']
+        print(f"✅ Berhasil mendapatkan response dari Gemini")
+        return content
+        
+    except requests.exceptions.HTTPError as e:
+        error_detail = ""
         try:
-            print(f"🔄 Mencoba provider: {provider_name} ({provider['model']})")
-            
-            response = requests.post(
-                f"{provider['base_url']}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=120
-            )
-            
-            print(f"API Response Status: {response.status_code}")
-            
-            response.raise_for_status()
-            
-            result = response.json()
-            
-            # Cek struktur response
-            if 'choices' not in result or len(result['choices']) == 0:
-                raise Exception(f"Response API tidak valid: {result}")
-            
-            content = result['choices'][0]['message']['content']
-            print(f"✅ Berhasil menggunakan provider: {provider_name}")
-            return content
-            
-        except requests.exceptions.HTTPError as e:
-            error_detail = ""
-            try:
-                error_detail = response.json()
-            except:
-                error_detail = response.text
-            
-            last_error = f"HTTP Error {response.status_code} dari {provider_name}: {error_detail}"
-            print(f"⚠️ {last_error}")
-            
-            # Jika 401, coba provider lain
-            if response.status_code == 401:
-                print(f"❌ Credential invalid untuk {provider_name}, mencoba provider lain...")
-                continue
-            else:
-                raise Exception(last_error)
-                
-        except requests.exceptions.Timeout:
-            last_error = f"Timeout dari {provider_name}"
-            print(f"⚠️ {last_error}")
-            continue
-            
-        except requests.exceptions.RequestException as e:
-            last_error = f"Error dari {provider_name}: {e}"
-            print(f"⚠️ {last_error}")
-            continue
+            error_detail = response.json()
+        except:
+            error_detail = response.text
+        raise Exception(f"HTTP Error {response.status_code}: {error_detail}")
+        
+    except requests.exceptions.Timeout:
+        raise Exception("Request timeout - API membutuhkan waktu terlalu lama (>60s)")
+        
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Error calling Gemini API: {e}")
     
-    # Jika semua provider gagal
-    raise Exception(f"Semua AI provider gagal. Last error: {last_error}")
+    except KeyError as e:
+        raise Exception(f"Format response Gemini tidak sesuai: {e}. Response: {result}")
 
 
 def load_excel_sheet(file_path, sheet_name):
@@ -290,8 +246,10 @@ def generate_assessment_questions(okupasi_id: str):
     except Exception as e:
         raise Exception(f"Error mengambil data okupasi: {e}")
     
-    # Generate soal menggunakan AI
-    prompt = f"""Buat TEPAT {JUMLAH_SOAL} soal pilihan ganda untuk menguji kompetensi seorang kandidat pada okupasi berikut:
+    # Generate soal menggunakan Gemini AI
+    prompt = f"""Anda adalah expert dalam bidang TIK Indonesia yang membuat soal asesmen kompetensi profesional.
+
+Buat TEPAT {JUMLAH_SOAL} soal pilihan ganda untuk menguji kompetensi seorang kandidat pada okupasi berikut:
 
 **Okupasi:** {okupasi_nama}
 **Unit Kompetensi:** {unit_kompetensi}
@@ -327,13 +285,13 @@ def generate_assessment_questions(okupasi_id: str):
 PENTING: 
 - TEPAT {JUMLAH_SOAL} soal (q1 sampai q{JUMLAH_SOAL})
 - Field "jawaban_benar" harus persis sama dengan salah satu opsi
-- Output harus valid JSON"""
+- Output HANYA JSON, tanpa teks tambahan"""
 
     try:
-        with st.spinner(f"🤖 AI sedang membuat {JUMLAH_SOAL} soal untuk {okupasi_nama}..."):
-            response_text = call_ollama_api(prompt, max_tokens=3000)
+        with st.spinner(f"🤖 Gemini AI sedang membuat {JUMLAH_SOAL} soal untuk {okupasi_nama}..."):
+            response_text = call_gemini_api(prompt)
         
-        print(f"Raw AI Response (first 500 chars): {response_text[:500]}")
+        print(f"Raw Gemini Response (first 500 chars): {response_text[:500]}")
         
         # Parse JSON
         response_json = json.loads(response_text)
@@ -380,7 +338,7 @@ PENTING:
             q["id"] = f"q{i+1}"
             q["tipe"] = "pilihan_ganda"
         
-        print(f"✅ Berhasil generate {len(questions)} soal dengan AI")
+        print(f"✅ Berhasil generate {len(questions)} soal dengan Gemini AI")
         return questions
         
     except json.JSONDecodeError as e:
