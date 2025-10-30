@@ -1,7 +1,10 @@
 streamlit
 pandas
 openpyxl
-scikit-learn  # Untuk simulasi clustering & matching sederhana
-sentence-transformers # Untuk embedding (jika ingin implementasi nyata)
-faiss-cpu     # Untuk vector database (jika ingin implementasi nyata)
-# 'openai' atau 'langchain' atau 'transformers' jika menggunakan LLM
+scikit-learn  # PENTING: Untuk simulasi Semantic Search & Rekomendasi
+
+# Library untuk implementasi NYATA (bisa ditambahkan nanti):
+# sentence-transformers
+# faiss-cpu
+# transformers
+# langchain
