@@ -52,11 +52,23 @@ def parse_cv_data(cv_text):
     # 3. Ekstrak Nama (Heuristik sederhana: ambil baris pertama)
     first_line = cv_text.split('\n')[0].strip()
     # Hindari mengambil email sebagai nama jika itu baris pertama
-    if first_line and '@' not in first_line and 'linkedin.com' not in first_line:
+    if first_line and '@' not in first_line and 'linkedin.com' not in first_line and len(first_line.split()) < 5: # Asumsi nama tidak terlalu panjang
         data["nama"] = first_line.title()
         
-    # 4. Lokasi (Sulit disimulasikan, bisa dikosongkan)
-    # Anda bisa tambahkan regex untuk kota-kota besar jika mau
+    # --- PERBAIKAN: Menambahkan parser lokasi sederhana ---
+    # 4. Lokasi (Simulasi Regex sederhana)
+    # Cari kota-kota besar di Indonesia
+    lokasi_match = re.search(
+        r'(Jakarta|Bandung|Surabaya|Yogyakarta|Jogja|Medan|Semarang|Makassar|Palembang|Denpasar|Depok|Tangerang|Bekasi)', 
+        cv_text, 
+        re.IGNORECASE
+    )
+    if lokasi_match:
+        lokasi_ditemukan = lokasi_match.group(0).title()
+        if lokasi_ditemukan == "Jogja":
+            lokasi_ditemukan = "Yogyakarta"
+        data["lokasi"] = lokasi_ditemukan
+    # --- AKHIR PERBAIKAN ---
     
     return data
 # --- AKHIR TAMBAHAN ---
@@ -79,7 +91,6 @@ st.markdown("Masukkan data diri dan profil Anda. AI akan menganalisis teks CV An
 
 
 # --- MODIFIKASI: Inisialisasi session state untuk form ---
-# Ini penting agar file uploader bisa mengisi form secara otomatis
 if 'form_email' not in st.session_state:
     st.session_state.form_email = ""
 if 'form_nama' not in st.session_state:
@@ -118,11 +129,13 @@ if uploaded_file is not None:
             # Panggil "AI" parser
             parsed_data = parse_cv_data(raw_text)
             
-            # Update session state, ini akan otomatis mengisi form
+            # --- PERBAIKAN: Lengkapi update session state ---
             st.session_state.form_email = parsed_data["email"]
             st.session_state.form_nama = parsed_data["nama"]
+            st.session_state.form_lokasi = parsed_data["lokasi"] # <-- INI YANG KURANG
             st.session_state.form_linkedin = parsed_data["linkedin"]
             st.session_state.form_cv_text = parsed_data["full_text"]
+            # --- AKHIR PERBAIKAN ---
             
             st.success("CV berhasil diproses! Silakan periksa dan lengkapi data di bawah.")
         except Exception as e:
@@ -145,8 +158,7 @@ with st.form("profil_form"):
     st.subheader("Data Diri")
     
     # --- MODIFIKASI: Hubungkan field ke session state ---
-    # Widget akan otomatis terisi jika session state berubah (oleh file uploader)
-    # dan pengguna tetap bisa mengeditnya.
+    # Widget ini TIDAK di-disable, sehingga bisa diedit.
     nama = st.text_input("Nama Lengkap*", key='form_nama')
     lokasi = st.text_input("Lokasi (Kota, Provinsi)", placeholder="Contoh: Jakarta, Bandung, Surabaya, Yogyakarta", key='form_lokasi')
     linkedin = st.text_input("URL Profil LinkedIn", key='form_linkedin')
@@ -166,10 +178,13 @@ with st.form("profil_form"):
 # --- MODIFIKASI: Baca data dari session state saat submit ---
 if submitted and st.session_state.form_email and st.session_state.form_nama and st.session_state.form_cv_text:
     
-    # Ambil data terbaru dari session state (yang mungkin sudah diedit pengguna)
+    # --- PERBAIKAN: Ambil SEMUA data yang sudah diedit pengguna ---
     email = st.session_state.form_email
     nama = st.session_state.form_nama
+    lokasi = st.session_state.form_lokasi       # <-- TAMBAHAN
+    linkedin = st.session_state.form_linkedin # <-- TAMBAHAN
     raw_cv_text = st.session_state.form_cv_text
+    # --- AKHIR PERBAIKAN ---
     
     with st.spinner("Menyimpan profil dan menjalankan AI Mapping..."):
         try:
@@ -187,14 +202,15 @@ if submitted and st.session_state.form_email and st.session_state.form_nama and 
             if okupasi_id is None:
                 st.error("Gagal memetakan profil. Database PON TIK mungkin kosong atau terjadi error.")
             else:
-                # ... (Logic penyimpanan data Anda) ...
+                # TODO: Simpan data ke Excel (termasuk 'lokasi' dan 'linkedin')
+                # ... 
                 
                 st.session_state.talent_id = talent_id
                 st.session_state.mapped_okupasi_id = okupasi_id
                 st.session_state.mapped_okupasi_nama = okupasi_nama
                 st.session_state.skill_gap = gap
                 st.session_state.assessment_score = None 
-                st.session_state.profile_text = profile_text_entities # Simpan teks yang sudah diproses
+                st.session_state.profile_text = profile_text_entities 
 
                 st.success(f"Profil Berhasil Dipetakan!")
                 st.subheader("Hasil Pemetaan Awal (AI):")
