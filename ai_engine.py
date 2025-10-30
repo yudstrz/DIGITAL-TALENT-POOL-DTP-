@@ -589,6 +589,71 @@ def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str
 
     return rekomendasi_pekerjaan, rekomendasi_pelatihan
 
+def get_ai_based_recommendation(profil_teks: str, okupasi_nama: str, skor_asesmen: int, gap_keterampilan: str):
+    """
+    🔮 Memberikan rekomendasi karir berbasis AI (Gemini)
+    Args:
+        profil_teks: Ringkasan profil peserta (hasil ekstraksi CV)
+        okupasi_nama: Nama okupasi hasil pemetaan
+        skor_asesmen: Skor asesmen terakhir (0-100)
+        gap_keterampilan: Daftar keterampilan yang perlu ditingkatkan
+
+    Returns:
+        Tuple (rekomendasi_karir, rekomendasi_pelatihan_ai)
+    """
+    if not REQUESTS_AVAILABLE:
+        st.warning("Library 'requests' tidak tersedia — tidak dapat menggunakan AI rekomendasi.")
+        return [], []
+
+    prompt = f"""
+Anda adalah asisten karir digital untuk platform pengembangan talenta Indonesia.
+Gunakan data berikut untuk memberikan rekomendasi karir dan pelatihan yang relevan:
+
+=== PROFIL PESERTA ===
+{profil_teks}
+
+=== OKUPASI TERDEKAT ===
+{okupasi_nama}
+
+=== SKOR ASESMEN ===
+{skor_asesmen}/100
+
+=== GAP KETERAMPILAN ===
+{gap_keterampilan}
+
+Buat rekomendasi dalam format JSON berikut:
+{{
+  "rekomendasi_karir": [
+    "Nama jabatan atau posisi karir yang relevan",
+    "Jalur karir alternatif (bila ada)"
+  ],
+  "rekomendasi_pelatihan": [
+    "Nama kursus atau program peningkatan kompetensi yang direkomendasikan",
+    "Platform atau lembaga penyedia pelatihan (opsional)"
+  ]
+}}
+
+Catatan penting:
+- Jawaban HARUS berupa JSON valid tanpa teks tambahan
+- Gunakan bahasa Indonesia yang profesional dan ringkas
+"""
+
+    try:
+        response_text = call_gemini_api(prompt)
+        response_text = sanitize_json_response(response_text)
+        response_json = json.loads(response_text)
+
+        rekomendasi_karir = response_json.get("rekomendasi_karir", [])
+        rekomendasi_pelatihan = response_json.get("rekomendasi_pelatihan", [])
+
+        print(f"✅ Rekomendasi AI Berhasil: {len(rekomendasi_karir)} karir, {len(rekomendasi_pelatihan)} pelatihan")
+        return rekomendasi_karir, rekomendasi_pelatihan
+
+    except Exception as e:
+        st.error(f"❌ Gagal mendapatkan rekomendasi AI: {e}")
+        
+        return [], []
+
 
 def get_national_dashboard_data():
     """Mengambil data untuk dashboard nasional"""
