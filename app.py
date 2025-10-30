@@ -1,4 +1,4 @@
-# app.py
+# 🚀 app.py
 import streamlit as st
 
 st.set_page_config(
@@ -33,10 +33,24 @@ Platform ini menggunakan simulasi Kecerdasan Artifisial (AI) untuk:
 
 st.info("Ini adalah prototipe. Fungsi AI disimulasikan untuk menunjukkan alur kerja.", icon="ℹ️")
 
-# Inisialisasi session state (untuk menyimpan data antar halaman)
+# --- PERBAIKAN DI SINI ---
+# Inisialisasi semua session state di file app.py
+
+# Inisialisasi untuk data talenta
 if 'talent_id' not in st.session_state:
     st.session_state.talent_id = None
     st.session_state.mapped_okupasi_id = None
     st.session_state.mapped_okupasi_nama = None
     st.session_state.assessment_score = None
     st.session_state.skill_gap = None
+    st.session_state.profile_text = None
+
+# Inisialisasi untuk AI Engine (cache model)
+if 'ai_initialized' not in st.session_state:
+    st.session_state.ai_initialized = False
+    st.session_state.vectorizer = None
+    st.session_state.pon_vectors = None
+    st.session_state.pon_data = None
+    st.session_state.job_vectors = None
+    st.session_state.job_data = None
+# -------------------------
