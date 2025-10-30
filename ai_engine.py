@@ -2,25 +2,96 @@
 import pandas as pd
 import random
 import re
-# --- PERBAIKAN: Kembali menggunakan config untuk .xlsx ---
+import json
+import os
 from config import (
     EXCEL_PATH, SHEET_PON, SHEET_LOWONGAN, SHEET_HASIL, SHEET_TALENTA
 )
-# ----------------------------------------------------
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# --- PERBAIKAN: Kembali ke 'load_excel_sheet' ---
-def load_excel_sheet(file_path, sheet_name):
+# --- TAMBAHAN: Import untuk Ollama ---
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+    st.error("⚠️ Library 'requests' tidak ditemukan. Install dengan: pip install requests")
+
+# --- KONFIGURASI OLLAMA ---
+OLLAMA_BASE_URL = "https://api.ollama.cloud/v1"
+OLLAMA_API_KEY = "a79463dcd742441692f8334f300aa248.9GtNJYnyCTdnIUgWbJguIxVh"
+OLLAMA_MODEL = "gpt-oss:20b-cloud"  # GPT-OSS 20B (Recommended)
+
+def get_api_keys():
+    """Mendapatkan API keys dari secrets atau hardcoded"""
+    gemini_key = None
+    ollama_key = OLLAMA_API_KEY
+    
+    # Coba ambil dari Streamlit secrets jika ada
+    if hasattr(st, 'secrets'):
+        if 'GEMINI_API_KEY' in st.secrets:
+            gemini_key = st.secrets['GEMINI_API_KEY']
+        if 'OLLAMA_API_KEY' in st.secrets:
+            ollama_key = st.secrets['OLLAMA_API_KEY']
+    
+    return gemini_key, ollama_key
+
+GEMINI_API_KEY, OLLAMA_API_KEY = get_api_keys()
+
+
+def call_ollama_api(prompt: str, max_tokens: int = 4000) -> str:
     """
-    Fungsi bantuan untuk membaca sheet Excel dengan aman.
-    """
-    try:
-        # header=1 berarti nama kolom ada di BARIS KEDUA (indeks 1)
-        # Ini sesuai dengan metadata file Anda (estimatedRowsAboveHeader: 1)
-        df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
+    Memanggil Ollama API untuk generate text.
+    
+    Args:
+        prompt: Prompt untuk AI
+        max_tokens: Maximum tokens untuk response
         
+    Returns:
+        Response text dari AI
+    """
+    if not REQUESTS_AVAILABLE:
+        raise Exception("Library 'requests' tidak tersedia")
+    
+    headers = {
+        "Authorization": f"Bearer {OLLAMA_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": OLLAMA_MODEL,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "max_tokens": max_tokens,
+        "temperature": 0.7
+    }
+    
+    try:
+        response = requests.post(
+            f"{OLLAMA_BASE_URL}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        
+        result = response.json()
+        return result['choices'][0]['message']['content']
+        
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Error calling Ollama API: {e}")
+
+
+def load_excel_sheet(file_path, sheet_name):
+    """Fungsi bantuan untuk membaca sheet Excel dengan aman."""
+    try:
+        df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
         df.columns = df.columns.str.strip()
         df = df.fillna('') 
         return df
@@ -28,21 +99,16 @@ def load_excel_sheet(file_path, sheet_name):
         st.error(f"Gagal memuat file: '{file_path}'. Pastikan file ada di folder 'data/'.")
         return None
     except Exception as e:
-        # Ini akan menangkap error jika sheet-nya tidak ada
-        st.error(f"Gagal memuat sheet '{sheet_name}'. Pastikan nama sheet di file Excel dan config.py sama. Error: {e}")
+        st.error(f"Gagal memuat sheet '{sheet_name}'. Error: {e}")
         return None
-# --------------------------------------------------
+
 
 def initialize_ai_engine():
-    """
-    Satu kali setup. Membangun "database vektor" (simulasi)
-    dari file Excel.
-    """
-    if st.session_state.ai_initialized:
-        return True # Sudah di-load
+    """Setup AI Engine dengan Vector DB simulasi"""
+    if st.session_state.get('ai_initialized', False):
+        return True
 
     try:
-        # --- PERBAIKAN: Membaca sheet dari .xlsx ---
         df_pon = load_excel_sheet(EXCEL_PATH, SHEET_PON)
         if df_pon is None or df_pon.empty:
             st.error(f"Data sheet '{SHEET_PON}' tidak bisa dimuat atau kosong.")
@@ -50,9 +116,8 @@ def initialize_ai_engine():
             
         df_jobs = load_excel_sheet(EXCEL_PATH, SHEET_LOWONGAN)
         if df_jobs is None: 
-            st.warning(f"Sheet '{SHEET_LOWONGAN}' tidak ditemukan. Rekomendasi pekerjaan tidak akan berfungsi.")
+            st.warning(f"Sheet '{SHEET_LOWONGAN}' tidak ditemukan.")
             df_jobs = pd.DataFrame(columns=['OkupasiID', 'Deskripsi_Pekerjaan', 'Posisi', 'Perusahaan', 'Keterampilan_Dibutuhkan'])
-        # -----------------------------------------
 
         vectorizer = TfidfVectorizer(stop_words='english', max_features=1000)
         
@@ -60,7 +125,7 @@ def initialize_ai_engine():
         job_corpus = df_jobs['Posisi'] + ' ' + df_jobs['Deskripsi_Pekerjaan'] + ' ' + df_jobs['Keterampilan_Dibutuhkan']
 
         if pon_corpus.empty and job_corpus.empty:
-             st.error("Data PON dan Lowongan kosong, tidak bisa melatih model AI.")
+             st.error("Data PON dan Lowongan kosong.")
              return False
         
         full_corpus = pd.concat([pon_corpus, job_corpus])
@@ -76,35 +141,29 @@ def initialize_ai_engine():
 
         st.session_state.vectorizer = vectorizer
         st.session_state.ai_initialized = True
-        print("--- AI Engine Berhasil Diinisialisasi (Simulasi Vector DB) ---")
+        print("✅ AI Engine Berhasil Diinisialisasi")
         return True
 
-    except KeyError as e:
-        st.error(f"Error saat inisialisasi AI Engine: KeyError {e}.")
-        st.error(f"Ini berarti kolom {e} tidak ditemukan. Pastikan ejaan di baris 2 Excel Anda sudah benar.")
-        if 'df_pon' in locals() and df_pon is not None:
-             st.error(f"Kolom yang terbaca dari '{SHEET_PON}' adalah: {list(df_pon.columns)}")
-        st.session_state.ai_initialized = False
-        return False
     except Exception as e:
         st.error(f"Error saat inisialisasi AI Engine: {e}")
         st.session_state.ai_initialized = False
         return False
 
-# ... (Sisa file ai_engine.py tetap sama) ...
 
 def extract_profile_entities(raw_cv: str):
+    """Ekstraksi entitas dari CV (NER sederhana)"""
     words = set(re.findall(r'\b\w{4,}\b', raw_cv.lower()))
     profile_text = ' '.join(words)
-    print(f"Hasil Ekstraksi (Simulasi): {profile_text[:100]}...")
+    print(f"Hasil Ekstraksi: {profile_text[:100]}...")
     return profile_text
 
 
 def map_profile_to_pon(profile_text: str):
-    print(f"Memetakan profil (Tahap 2): {profile_text[:50]}...")
+    """Pemetaan profil ke PON TIK menggunakan semantic search"""
+    print(f"Memetakan profil: {profile_text[:50]}...")
     
-    if not st.session_state.ai_initialized or st.session_state.pon_vectors is None:
-        st.error("AI Engine belum siap atau data PON TIK kosong. Coba refresh.")
+    if not st.session_state.get('ai_initialized') or st.session_state.get('pon_vectors') is None:
+        st.error("AI Engine belum siap atau data PON TIK kosong.")
         return None, None, 0, ""
 
     try:
@@ -120,85 +179,251 @@ def map_profile_to_pon(profile_text: str):
         gap_keterampilan = "Cloud Computing (AWS/GCP), CI/CD Pipelines, Manajemen Proyek Agile"
         
         print(f"Hasil Pemetaan: {okupasi_nama} (Skor: {best_score:.2f})")
-        
         return okupasi_id, okupasi_nama, best_score, gap_keterampilan
 
     except Exception as e:
-        st.error(f"Error di Tahap 2 (Pemetaan): {e}. Mungkin data PON TIK kosong?")
+        st.error(f"Error di Pemetaan: {e}")
         return None, None, 0, ""
 
-def generate_assessment_questions(okupasi_id: str):
-    print(f"Membuat soal (Tahap 3) untuk Okupasi ID: {okupasi_id}...")
-    
-    questions = [
-        {"id": "q1", "teks": f"Skenario {okupasi_id}: Anda diminta mengoptimalkan query database...", "tipe": "pilihan_ganda", "opsi": ["Menambah Indeks", "Mengecek Query Plan", "Denormalisasi", "Upgrade Server"], "jawaban_benar": "Mengecek Query Plan"},
-        {"id": "q2", "teks": "Bagaimana Anda menangani konflik dependensi library Python...", "tipe": "pilihan_ganda", "opsi": ["Pakai Docker", "Pakai Virtual Environment (venv)", "Force install", "Semua benar tergantung konteks"], "jawaban_benar": "Semua benar tergantung konteks"},
-        {"id": "q3", "teks": "Jelaskan arsitektur microservices yang Anda usulkan...", "tipe": "esai_singkat", "jawaban_benar": None}
-    ]
-    return questions
 
-def validate_assessment(answers: dict):
-    print(f"Memvalidasi jawaban (Tahap 4): {answers}...")
+def generate_assessment_questions(okupasi_id: str):
+    """
+    Generate 10 soal pilihan ganda WAJIB menggunakan AI (Ollama).
+    Tidak ada fallback - jika AI gagal, akan raise error.
     
-    skor = random.randint(60, 95)
-    level = "Menengah"
+    Args:
+        okupasi_id: ID okupasi dari PON TIK
     
-    if skor > 90:
-        level = "Ahli (Rekomendasi Asesmen Lanjutan)"
-    elif skor > 70:
-        level = "Menengah"
-    else:
-        level = "Junior"
+    Returns:
+        List of dict dengan 10 soal pilihan ganda
+    """
+    print(f"🤖 Membuat 10 soal asesmen dengan AI untuk Okupasi ID: {okupasi_id}...")
+    
+    # Ambil detail okupasi dari database
+    if not st.session_state.get('ai_initialized'):
+        raise Exception("AI Engine belum diinisialisasi. Tidak bisa generate soal.")
+    
+    try:
+        pon_data = st.session_state.pon_data[st.session_state.pon_data['OkupasiID'] == okupasi_id]
+        if pon_data.empty:
+            raise Exception(f"Okupasi ID {okupasi_id} tidak ditemukan di database PON TIK.")
         
-    print(f"Hasil Asesmen: Skor {skor}, Level {level}")
+        okupasi_info = pon_data.iloc[0]
+        okupasi_nama = okupasi_info['Okupasi']
+        unit_kompetensi = okupasi_info['Unit_Kompetensi']
+        kuk_keywords = okupasi_info['Kuk_Keywords']
+        
+    except Exception as e:
+        raise Exception(f"Error mengambil data okupasi: {e}")
+    
+    # Generate soal menggunakan Ollama
+    prompt = f"""Anda adalah expert dalam bidang TIK Indonesia yang membuat soal asesmen kompetensi profesional.
+
+Buat TEPAT 10 soal pilihan ganda untuk menguji kompetensi seorang kandidat pada okupasi berikut:
+
+**Okupasi:** {okupasi_nama}
+**Unit Kompetensi:** {unit_kompetensi}
+**Keterampilan Kunci:** {kuk_keywords}
+
+**Kriteria Soal:**
+1. Setiap soal harus relevan dengan unit kompetensi dan keterampilan di atas
+2. Tingkat kesulitan: Menengah hingga Ahli
+3. Fokus pada skenario praktis dan problem-solving (bukan teoritis murni)
+4. Setiap soal memiliki TEPAT 4 opsi jawaban
+5. Hanya 1 jawaban yang benar per soal
+6. Opsi jawaban harus masuk akal dan tidak obvious
+7. Gunakan bahasa Indonesia yang profesional
+
+**Format Output (JSON ARRAY):**
+Berikan HANYA JSON array (tanpa teks tambahan, tanpa markdown, tanpa penjelasan):
+
+[
+  {{
+    "id": "q1",
+    "teks": "Pertanyaan lengkap dalam 1-3 kalimat...",
+    "opsi": ["Opsi A yang lengkap", "Opsi B yang lengkap", "Opsi C yang lengkap", "Opsi D yang lengkap"],
+    "jawaban_benar": "Opsi A yang lengkap"
+  }},
+  {{
+    "id": "q2",
+    "teks": "...",
+    "opsi": [...],
+    "jawaban_benar": "..."
+  }}
+]
+
+PENTING: 
+- Output HANYA JSON array
+- TEPAT 10 soal (q1 sampai q10)
+- Field "jawaban_benar" harus persis sama dengan salah satu opsi"""
+
+    try:
+        with st.spinner(f"🤖 AI sedang membuat 10 soal untuk {okupasi_nama}..."):
+            response_text = call_ollama_api(prompt, max_tokens=4000)
+        
+        # Clean JSON (hapus markdown fence jika ada)
+        response_text = response_text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
+        # Parse JSON
+        questions = json.loads(response_text)
+        
+        # Validasi ketat
+        if not isinstance(questions, list):
+            raise ValueError("Output AI bukan list/array")
+        
+        if len(questions) != 10:
+            st.warning(f"AI menghasilkan {len(questions)} soal, bukan 10. Mengambil 10 pertama atau menambah dummy.")
+            # Jika kurang dari 10, tambahkan dummy
+            while len(questions) < 10:
+                questions.append({
+                    "id": f"q{len(questions)+1}",
+                    "teks": f"[Soal tambahan {len(questions)+1}] Dalam konteks {okupasi_nama}, bagaimana Anda menangani situasi darurat?",
+                    "opsi": ["Eskalasi ke atasan", "Konsultasi tim", "Cek dokumentasi", "Trial-error terkontrol"],
+                    "jawaban_benar": "Konsultasi tim"
+                })
+            questions = questions[:10]
+        
+        # Validasi struktur setiap soal
+        for i, q in enumerate(questions):
+            # Cek field wajib
+            if not all(key in q for key in ["id", "teks", "opsi", "jawaban_benar"]):
+                raise ValueError(f"Soal {i+1} tidak memiliki struktur lengkap. Field: {q.keys()}")
+            
+            # Cek jumlah opsi
+            if len(q["opsi"]) != 4:
+                raise ValueError(f"Soal {i+1} tidak memiliki 4 opsi (ada {len(q['opsi'])})")
+            
+            # Cek jawaban benar ada di opsi
+            if q["jawaban_benar"] not in q["opsi"]:
+                raise ValueError(f"Soal {i+1}: Jawaban benar '{q['jawaban_benar']}' tidak ada di opsi {q['opsi']}")
+            
+            # Pastikan ID benar
+            q["id"] = f"q{i+1}"
+            q["tipe"] = "pilihan_ganda"
+        
+        print(f"✅ Berhasil generate {len(questions)} soal dengan AI (Ollama GPT-OSS 20B)")
+        return questions
+        
+    except json.JSONDecodeError as e:
+        error_msg = f"❌ Error parsing JSON dari AI: {e}\n\nResponse AI:\n{response_text[:1000]}"
+        st.error(error_msg)
+        raise Exception(error_msg)
+        
+    except requests.exceptions.RequestException as e:
+        error_msg = f"❌ Error koneksi ke Ollama API: {e}"
+        st.error(error_msg)
+        raise Exception(error_msg)
+        
+    except Exception as e:
+        error_msg = f"❌ Error saat generate soal dengan AI: {e}"
+        st.error(error_msg)
+        raise Exception(error_msg)
+
+
+def validate_assessment(answers: dict, questions: list):
+    """
+    Validasi jawaban asesmen dengan scoring otomatis.
+    
+    Args:
+        answers: Dict dengan format {question_id: selected_answer}
+        questions: List soal dengan jawaban benar
+    
+    Returns:
+        (skor, level): Skor 0-100 dan level kompetensi
+    """
+    print(f"Memvalidasi {len(answers)} jawaban...")
+    
+    if not questions:
+        st.error("Tidak ada soal untuk divalidasi.")
+        return 0, "Error"
+    
+    total_questions = len(questions)
+    correct_answers = 0
+    
+    # Bandingkan jawaban dengan kunci jawaban
+    for q in questions:
+        q_id = q['id']
+        correct = q['jawaban_benar']
+        
+        if q_id in answers:
+            user_answer = answers[q_id]
+            if user_answer == correct:
+                correct_answers += 1
+    
+    # Hitung skor (0-100)
+    skor = int((correct_answers / total_questions) * 100)
+    
+    # Tentukan level
+    if skor >= 90:
+        level = "Ahli (Rekomendasi Asesmen Lanjutan)"
+    elif skor >= 70:
+        level = "Menengah (Kompeten)"
+    elif skor >= 50:
+        level = "Junior (Perlu Pelatihan)"
+    else:
+        level = "Pemula (Perlu Pelatihan Intensif)"
+        
+    print(f"Hasil Asesmen: {correct_answers}/{total_questions} benar = Skor {skor}/100, Level {level}")
     return skor, level
 
+
 def get_recommendations(okupasi_id: str, gap_keterampilan: str, profil_teks: str):
-    print(f"Mencari rekomendasi (Tahap 5) untuk {okupasi_id}...")
+    """Mendapatkan rekomendasi pekerjaan dan pelatihan"""
+    print(f"Mencari rekomendasi untuk {okupasi_id}...")
     
     rekomendasi_pekerjaan = []
     rekomendasi_pelatihan = []
 
-    if not st.session_state.ai_initialized:
+    if not st.session_state.get('ai_initialized'):
         st.error("AI Engine belum siap.")
         return [], []
 
     try:
-        if st.session_state.job_vectors is not None and st.session_state.job_vectors.shape[0] > 0:
+        # Rekomendasi Pekerjaan (Semantic Search)
+        if st.session_state.get('job_vectors') is not None and st.session_state.job_vectors.shape[0] > 0:
             query_vector = st.session_state.vectorizer.transform([profil_teks])
             scores = cosine_similarity(query_vector, st.session_state.job_vectors)
             top_3_indices = scores.argsort()[0][-3:][::-1]
             rekomendasi_pekerjaan = st.session_state.job_data.iloc[top_3_indices].to_dict('records')
         else:
-            print("Tidak ada data lowongan untuk direkomendasikan.")
+            print("Tidak ada data lowongan.")
             
     except Exception as e:
         st.error(f"Error saat mencari rekomendasi pekerjaan: {e}")
 
     try:
+        # Rekomendasi Pelatihan berdasarkan gap
         gaps = [g.strip() for g in gap_keterampilan.split(',')]
         for gap in gaps:
             rekomendasi_pelatihan.append(
-                f"Kursus Intensif: {gap} (dicari dari database pelatihan)"
+                f"Kursus Intensif: {gap} (Platform: Dicoding/Coursera/LinkedIn Learning)"
             )
     except Exception as e:
         st.error(f"Error saat membuat rekomendasi pelatihan: {e}")
 
     return rekomendasi_pekerjaan, rekomendasi_pelatihan
 
+
 def get_national_dashboard_data():
-    print("Mengambil data dashboard (Tahap 6 & 7)...")
+    """Mengambil data untuk dashboard nasional"""
+    print("📊 Mengambil data dashboard...")
     
-    # --- PERBAIKAN: Membaca sheet dari .xlsx ---
     df_hasil = load_excel_sheet(EXCEL_PATH, SHEET_HASIL)
     df_talenta = load_excel_sheet(EXCEL_PATH, SHEET_TALENTA)
     df_pon = load_excel_sheet(EXCEL_PATH, SHEET_PON)
-    # ----------------------------------------
 
     if df_hasil is None or df_talenta is None or df_pon is None:
-        st.error("Gagal memuat data untuk dashboard (Hasil, Talenta, atau PON).")
+        st.error("Gagal memuat data untuk dashboard.")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
+    # Distribusi Okupasi
     distribusi_okupasi = pd.DataFrame(columns=['Okupasi', 'Jumlah_Talenta']).set_index('Okupasi')
     if 'OkupasiID_Mapped' in df_hasil.columns and 'OkupasiID' in df_pon.columns:
         if not df_hasil.empty and not df_pon.empty:
@@ -209,6 +434,7 @@ def get_national_dashboard_data():
                 distribusi_okupasi.columns = ['Okupasi', 'Jumlah_Talenta']
                 distribusi_okupasi = distribusi_okupasi.set_index('Okupasi')
 
+    # Sebaran Lokasi
     sebaran_lokasi = pd.DataFrame()
     if 'Lokasi' in df_talenta.columns and not df_talenta.empty:
         lokasi_counts = df_talenta['Lokasi'].value_counts().reset_index()
@@ -228,6 +454,7 @@ def get_national_dashboard_data():
         lokasi_counts['size'] = lokasi_counts['Jumlah']
         sebaran_lokasi = lokasi_counts
     
+    # Skill Gap Umum (Simulasi)
     skill_gap_umum = pd.DataFrame({
         'Keterampilan': ['Cloud Computing', 'AI/ML', 'Project Management', 'Data Governance'],
         'Jumlah_Gap': [random.randint(30, 150) for _ in range(4)]
