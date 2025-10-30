@@ -155,10 +155,23 @@ if email_input_disabled:
 
 
 with st.form("profil_form"):
+    
+    # --- PERBAIKAN: Pindahkan field 'email' KE DALAM SINI ---
+    st.subheader("Data Akun")
+    email_input_disabled = bool(st.session_state.form_email)
+    email = st.text_input(
+        "Email Anda*", 
+        help="Email akan digunakan sebagai ID unik Anda.",
+        key='form_email', # Gunakan key
+        disabled=email_input_disabled
+    )
+    if email_input_disabled:
+        st.caption("Email Anda (yang diekstrak dari CV) digunakan sebagai ID unik dan tidak dapat diubah.")
+    # --- AKHIR PERBAIKAN ---
+
     st.subheader("Data Diri")
     
-    # --- MODIFIKASI: Hubungkan field ke session state ---
-    # Widget ini TIDAK di-disable, sehingga bisa diedit.
+    # Field ini sudah benar (karena sudah di dalam form)
     nama = st.text_input("Nama Lengkap*", key='form_nama')
     lokasi = st.text_input("Lokasi (Kota, Provinsi)", placeholder="Contoh: Jakarta, Bandung, Surabaya, Yogyakarta", key='form_lokasi')
     linkedin = st.text_input("URL Profil LinkedIn", key='form_linkedin')
@@ -167,7 +180,6 @@ with st.form("profil_form"):
     raw_cv = st.text_area("Tempelkan (paste) CV atau Deskripsi Diri Anda di Sini*", height=250,
                             help="AI akan mengekstrak pendidikan, pengalaman, dan keterampilan dari teks ini.",
                             key='form_cv_text')
-    # --- AKHIR MODIFIKASI ---
     
     submit_disabled = not ai_engine_ready
     if submit_disabled:
@@ -175,15 +187,17 @@ with st.form("profil_form"):
     
     submitted = st.form_submit_button("Simpan & Petakan Profil Saya", disabled=submit_disabled)
 
-# --- MODIFIKASI: Baca data dari session state saat submit ---
+# --- (Blok 'if submitted...' Anda di bawah ini tidak perlu diubah) ---
 if submitted and st.session_state.form_email and st.session_state.form_nama and st.session_state.form_cv_text:
-    
-    # --- PERBAIKAN: Ambil SEMUA data yang sudah diedit pengguna ---
-    email = st.session_state.form_email
-    nama = st.session_state.form_nama
-    lokasi = st.session_state.form_lokasi       # <-- TAMBAHAN
-    linkedin = st.session_state.form_linkedin # <-- TAMBAHAN
-    raw_cv_text = st.session_state.form_cv_text
+    # ... (logika sukses Anda) ...
+else:
+    if submitted:
+        if not st.session_state.form_email:
+            st.warning("Email tidak boleh kosong.")
+        elif not st.session_state.form_nama:
+            st.warning("Nama Lengkap tidak boleh kosong.")
+        elif not st.session_state.form_cv_text:
+            st.warning("Deskripsi CV tidak boleh kosong.")
     # --- AKHIR PERBAIKAN ---
     
     with st.spinner("Menyimpan profil dan menjalankan AI Mapping..."):
