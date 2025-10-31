@@ -1,5 +1,5 @@
 """
-HALAMAN REKOMENDASI - CHATBOT VERSION
+HALAMAN REKOMENDASI - CHATBOT VERSION (Enhanced UI)
 Chatbot AI untuk analisis profil & rekomendasi karier
 """
 
@@ -18,105 +18,199 @@ from config import (
 # KONFIGURASI
 # ========================================
 st.set_page_config(
-    page_title="Rekomendasi Karier", 
+    page_title="Career Assistant AI", 
     page_icon="💡", 
     layout="wide"
 )
 
 
 # ========================================
-# CUSTOM CSS - WHATSAPP STYLE CHAT
+# CUSTOM CSS - MODERN CHAT UI
 # ========================================
 st.markdown("""
 <style>
+/* Hide Streamlit default elements */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* Main Container */
+.main-chat-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0;
+}
+
+/* Chat Header */
+.chat-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.chat-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+.chat-header p {
+    margin: 5px 0 0 0;
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
 /* Chat Container */
 .chat-container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-    background: linear-gradient(to bottom, #e5ddd5 0%, #e5ddd5 100%);
-    border-radius: 10px;
-    height: 500px;
+    background: #f0f2f5;
+    padding: 25px;
+    height: 550px;
     overflow-y: auto;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-left: 1px solid #e0e0e0;
+    border-right: 1px solid #e0e0e0;
+    scroll-behavior: smooth;
 }
 
-/* User Message Bubble */
-.user-bubble {
-    background: #dcf8c6;
-    color: #000;
-    padding: 10px 15px;
-    border-radius: 15px;
-    margin: 8px 0;
-    margin-left: auto;
-    max-width: 70%;
+/* Scroll bar styling */
+.chat-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-container::-webkit-scrollbar-track {
+    background: #f0f2f5;
+}
+
+.chat-container::-webkit-scrollbar-thumb {
+    background: #c0c0c0;
+    border-radius: 10px;
+}
+
+.chat-container::-webkit-scrollbar-thumb:hover {
+    background: #a0a0a0;
+}
+
+/* Message Wrapper */
+.message-wrapper {
+    display: flex;
+    margin-bottom: 16px;
+    animation: fadeIn 0.3s ease;
+}
+
+.message-wrapper.user {
+    justify-content: flex-end;
+}
+
+.message-wrapper.ai {
+    justify-content: flex-start;
+}
+
+/* Avatar */
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3em;
+    flex-shrink: 0;
+    margin: 0 10px;
+}
+
+.avatar.user {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    order: 2;
+}
+
+.avatar.ai {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    order: 1;
+}
+
+/* Message Bubble */
+.message-bubble {
+    max-width: 65%;
+    padding: 12px 18px;
+    border-radius: 18px;
     word-wrap: break-word;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     position: relative;
-    animation: slideInRight 0.3s ease;
 }
 
-/* AI Message Bubble */
-.ai-bubble {
-    background: #fff;
-    color: #000;
-    padding: 10px 15px;
-    border-radius: 15px;
-    margin: 8px 0;
-    margin-right: auto;
-    max-width: 70%;
-    word-wrap: break-word;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    position: relative;
-    animation: slideInLeft 0.3s ease;
+.message-bubble.user {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom-right-radius: 4px;
+    order: 1;
 }
 
-/* Message Metadata */
+.message-bubble.ai {
+    background: white;
+    color: #333;
+    border-bottom-left-radius: 4px;
+    order: 2;
+}
+
+/* Message Content */
+.message-content {
+    margin: 0;
+    line-height: 1.5;
+    font-size: 0.95em;
+}
+
+.message-bubble.ai .message-content {
+    color: #2c3e50;
+}
+
+.message-bubble.ai strong {
+    color: #667eea;
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.85em;
+}
+
+/* Timestamp */
 .message-time {
-    font-size: 0.7em;
-    color: #667;
-    margin-top: 4px;
+    font-size: 0.75em;
+    margin-top: 6px;
+    opacity: 0.7;
     text-align: right;
 }
 
-/* Animations */
-@keyframes slideInRight {
-    from { transform: translateX(50px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+.message-bubble.user .message-time {
+    color: rgba(255,255,255,0.8);
 }
 
-@keyframes slideInLeft {
-    from { transform: translateX(-50px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
-/* Input Area */
-.input-container {
-    position: sticky;
-    bottom: 0;
-    background: white;
-    padding: 15px;
-    border-radius: 10px;
-    margin-top: 10px;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+.message-bubble.ai .message-time {
+    color: #999;
+    text-align: left;
 }
 
 /* Typing Indicator */
+.typing-wrapper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
 .typing-indicator {
-    display: inline-block;
-    padding: 10px 15px;
-    background: #fff;
-    border-radius: 15px;
-    margin: 8px 0;
+    background: white;
+    padding: 15px 20px;
+    border-radius: 18px;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-left: 60px;
 }
 
 .typing-indicator span {
-    height: 8px;
-    width: 8px;
-    background-color: #90949c;
+    height: 10px;
+    width: 10px;
+    background: #667eea;
     border-radius: 50%;
     display: inline-block;
-    margin: 0 2px;
+    margin: 0 3px;
     animation: typing 1.4s infinite;
 }
 
@@ -129,8 +223,79 @@ st.markdown("""
 }
 
 @keyframes typing {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-10px); }
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-10px); opacity: 1; }
+}
+
+/* Input Container */
+.input-container {
+    background: white;
+    padding: 20px;
+    border-radius: 0 0 15px 15px;
+    border: 1px solid #e0e0e0;
+    border-top: none;
+    box-shadow: 0 -2px 15px rgba(0,0,0,0.05);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Quick Actions */
+.quick-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.quick-btn {
+    background: white;
+    border: 2px solid #667eea;
+    color: #667eea;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.quick-btn:hover {
+    background: #667eea;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* Status Badge */
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin: 5px 0;
+}
+
+.status-badge.online {
+    background: #d4edda;
+    color: #155724;
+}
+
+/* Welcome Card */
+.welcome-card {
+    background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+    border: 2px solid #667eea40;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.welcome-card h3 {
+    color: #667eea;
+    margin-bottom: 10px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -141,10 +306,9 @@ st.markdown("""
 # ========================================
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
-    # Welcome message dari AI
     st.session_state.chat_history.append({
         "role": "ai",
-        "content": "👋 Halo! Saya **Career Assistant AI**.\n\nSaya akan membantu Anda menemukan jalur karier yang tepat! Ceritakan tentang:\n\n✅ Pengalaman kerja Anda\n✅ Skill yang Anda kuasai\n✅ Minat karier Anda\n\nYuk mulai! 🚀",
+        "content": "👋 **Halo! Saya Career Assistant AI**\n\nSaya siap membantu Anda menemukan jalur karier yang tepat di bidang TIK!\n\n💡 **Ceritakan kepada saya:**\n• Pengalaman kerja Anda\n• Skill teknis yang dikuasai\n• Minat & passion karier\n\nYuk mulai percakapan! 🚀",
         "timestamp": datetime.now().strftime("%H:%M")
     })
 
@@ -180,7 +344,7 @@ def call_gemini_api(prompt: str) -> str:
         return content.strip()
         
     except Exception as e:
-        return f"❌ Maaf, terjadi kesalahan: {str(e)}"
+        return f"❌ Maaf, terjadi kesalahan koneksi. Silakan coba lagi.\n\nDetail: {str(e)}"
 
 
 # ========================================
@@ -189,10 +353,9 @@ def call_gemini_api(prompt: str) -> str:
 def get_career_analysis(user_message: str, chat_history: list) -> str:
     """Generate response dari AI berdasarkan context chat"""
     
-    # Build context dari chat history
     context = "\n".join([
         f"{'User' if msg['role']=='user' else 'AI'}: {msg['content']}" 
-        for msg in chat_history[-5:]  # Ambil 5 pesan terakhir
+        for msg in chat_history[-6:]
     ])
     
     prompt = f"""Anda adalah Career Coach AI yang ramah dan profesional untuk bidang Teknologi Informasi dan Komunikasi (TIK).
@@ -204,14 +367,15 @@ def get_career_analysis(user_message: str, chat_history: list) -> str:
 {user_message}
 
 === INSTRUKSI ===
-1. Jawab dengan ramah dan supportif seperti chat WhatsApp
-2. Gunakan emoji yang sesuai (jangan berlebihan)
-3. Berikan analisis spesifik tentang karier TIK
-4. Jika user cerita pengalaman: identifikasi skill & okupasi yang cocok
-5. Jika user tanya pelatihan: rekomendasikan kursus/sertifikasi
-6. Jika user tanya lowongan: rekomendasikan jenis pekerjaan yang sesuai
-7. Maksimal 4-5 kalimat, singkat dan padat
-8. Gunakan bahasa Indonesia informal tapi profesional
+1. Jawab dengan ramah dan supportif seperti chat profesional
+2. Gunakan emoji secukupnya (1-2 per respon)
+3. Berikan analisis spesifik tentang karier TIK di Indonesia
+4. Jika user cerita pengalaman: identifikasi skill & okupasi yang cocok (Software Engineer, Data Analyst, DevOps, dll)
+5. Jika user tanya pelatihan: rekomendasikan platform (Coursera, Dicoding, MySkill, dll)
+6. Jika user tanya lowongan: sebutkan jenis pekerjaan TIK yang sesuai
+7. Maksimal 5-6 kalimat, padat & actionable
+8. Gunakan bahasa Indonesia profesional tapi tetap hangat
+9. Akhiri dengan pertanyaan follow-up jika perlu
 
 Jawab sekarang:"""
 
@@ -222,22 +386,24 @@ Jawab sekarang:"""
 # FUNGSI: RENDER CHAT BUBBLE
 # ========================================
 def render_chat_bubble(message: dict):
-    """Render chat bubble berdasarkan role"""
+    """Render chat bubble dengan avatar"""
     if message['role'] == 'user':
         st.markdown(f"""
-        <div style="display: flex; justify-content: flex-end;">
-            <div class="user-bubble">
-                {message['content']}
+        <div class="message-wrapper user">
+            <div class="message-bubble user">
+                <div class="message-content">{message['content']}</div>
                 <div class="message-time">{message['timestamp']}</div>
             </div>
+            <div class="avatar user">👤</div>
         </div>
         """, unsafe_allow_html=True)
     else:
+        content_formatted = message['content'].replace('\n', '<br>')
         st.markdown(f"""
-        <div style="display: flex; justify-content: flex-start;">
-            <div class="ai-bubble">
-                <strong>🤖 Career AI</strong><br>
-                {message['content'].replace('\n', '<br>')}
+        <div class="message-wrapper ai">
+            <div class="avatar ai">🤖</div>
+            <div class="message-bubble ai">
+                <div class="message-content">{content_formatted}</div>
                 <div class="message-time">{message['timestamp']}</div>
             </div>
         </div>
@@ -245,79 +411,100 @@ def render_chat_bubble(message: dict):
 
 
 # ========================================
-# FUNGSI: REKOMENDASI PEKERJAAN & PELATIHAN
+# FUNGSI: REKOMENDASI
 # ========================================
 def get_recommendations(okupasi_id, skill_gap, profil_teks):
     """Return: (jobs, trainings)"""
     job_samples = [
         {
             "Posisi": "Data Analyst",
-            "Perusahaan": "Tech Innovate",
-            "Lokasi": "Jakarta",
-            "Keterampilan_Dibutuhkan": "Python, SQL, Power BI",
-            "Deskripsi_Pekerjaan": "Menganalisis data untuk mendukung keputusan bisnis."
+            "Perusahaan": "Tech Innovate Indonesia",
+            "Lokasi": "Jakarta Selatan",
+            "Keterampilan_Dibutuhkan": "Python, SQL, Power BI, Excel",
+            "Deskripsi_Pekerjaan": "Menganalisis data bisnis untuk insight strategis perusahaan fintech."
         },
         {
             "Posisi": "Machine Learning Engineer",
-            "Perusahaan": "AI Labs",
+            "Perusahaan": "AI Labs Indonesia",
             "Lokasi": "Bandung",
-            "Keterampilan_Dibutuhkan": "Python, TensorFlow, AWS",
-            "Deskripsi_Pekerjaan": "Membangun model AI untuk produksi."
+            "Keterampilan_Dibutuhkan": "Python, TensorFlow, PyTorch, AWS",
+            "Deskripsi_Pekerjaan": "Membangun dan deploy model AI untuk produk digital."
         },
         {
             "Posisi": "DevOps Engineer",
-            "Perusahaan": "CloudTech",
-            "Lokasi": "Jakarta",
-            "Keterampilan_Dibutuhkan": "Docker, Kubernetes, CI/CD",
-            "Deskripsi_Pekerjaan": "Mengelola infrastruktur cloud dan automation."
+            "Perusahaan": "CloudTech Indonesia",
+            "Lokasi": "Jakarta Pusat",
+            "Keterampilan_Dibutuhkan": "Docker, Kubernetes, CI/CD, Terraform",
+            "Deskripsi_Pekerjaan": "Mengelola infrastruktur cloud dan automation pipeline."
+        },
+        {
+            "Posisi": "Frontend Developer",
+            "Perusahaan": "Digital Creative",
+            "Lokasi": "Yogyakarta",
+            "Keterampilan_Dibutuhkan": "React, TypeScript, Tailwind CSS",
+            "Deskripsi_Pekerjaan": "Membangun UI/UX responsive untuk aplikasi web modern."
         }
     ]
 
     training_samples = [
-        "Pelatihan Cloud Computing (AWS/GCP Fundamentals)",
-        "Kursus CI/CD Pipelines untuk DevOps",
-        "Workshop Manajemen Proyek Agile",
-        "Bootcamp Machine Learning Intermediate",
-        "Sertifikasi Data Engineering Professional"
+        "🎓 AWS Certified Solutions Architect (Dicoding Indonesia)",
+        "📊 Data Science Bootcamp (MySkill Academy)",
+        "⚙️ CI/CD Mastery dengan Jenkins & GitLab (Udemy)",
+        "🧠 Machine Learning Intermediate (Coursera)",
+        "🚀 Full Stack Web Development (Dicoding)",
+        "☁️ Google Cloud Professional (Qwiklabs)"
     ]
 
-    jobs = random.sample(job_samples, k=min(2, len(job_samples)))
-    trainings = random.sample(training_samples, k=min(3, len(training_samples)))
+    jobs = random.sample(job_samples, k=min(3, len(job_samples)))
+    trainings = random.sample(training_samples, k=min(4, len(training_samples)))
 
     return jobs, trainings
 
 
 # ========================================
-# UI: JUDUL
+# UI: HEADER
 # ========================================
-st.title("💡 3. Career Assistant AI")
 st.markdown("""
-💬 **Konsultasi Karier dengan AI** - Seperti chat dengan career coach profesional!
-""")
+<div class="chat-header">
+    <h2>💡 Career Assistant AI</h2>
+    <p>Konsultasi Karier TIK dengan AI • <span class="status-badge online">● Online</span></p>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ========================================
-# UI: CHATBOT INTERFACE
+# UI: WELCOME CARD (Jika chat baru)
 # ========================================
-st.markdown("### 🤖 Chat dengan Career AI")
+if len(st.session_state.chat_history) == 1:
+    st.markdown("""
+    <div class="welcome-card">
+        <h3>🎯 Selamat Datang di Career Assistant AI!</h3>
+        <p>Dapatkan rekomendasi karier TIK yang dipersonalisasi untuk Anda.<br>
+        Mulai dengan menceritakan pengalaman dan minat Anda! 💼</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Container untuk chat
-chat_container = st.container()
 
-with chat_container:
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+# ========================================
+# UI: CHAT CONTAINER
+# ========================================
+chat_placeholder = st.empty()
+
+with chat_placeholder.container():
+    st.markdown('<div class="chat-container" id="chat-box">', unsafe_allow_html=True)
     
-    # Render semua chat history
     for message in st.session_state.chat_history:
         render_chat_bubble(message)
     
-    # Typing indicator jika waiting
     if st.session_state.waiting_response:
         st.markdown("""
-        <div class="typing-indicator">
-            <span></span>
-            <span></span>
-            <span></span>
+        <div class="typing-wrapper">
+            <div class="avatar ai">🤖</div>
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -325,22 +512,68 @@ with chat_container:
 
 
 # ========================================
+# UI: QUICK ACTIONS
+# ========================================
+st.markdown("#### ⚡ Quick Actions")
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("💼 Lowongan", use_container_width=True):
+        st.session_state.chat_history.append({
+            "role": "user",
+            "content": "Lowongan apa yang cocok untuk saya?",
+            "timestamp": datetime.now().strftime("%H:%M")
+        })
+        st.rerun()
+
+with col2:
+    if st.button("📚 Pelatihan", use_container_width=True):
+        st.session_state.chat_history.append({
+            "role": "user",
+            "content": "Pelatihan apa yang sebaiknya saya ikuti?",
+            "timestamp": datetime.now().strftime("%H:%M")
+        })
+        st.rerun()
+
+with col3:
+    if st.button("🎯 Analisis", use_container_width=True):
+        st.session_state.chat_history.append({
+            "role": "user",
+            "content": "Analisis skill saya dan kasih saran karier",
+            "timestamp": datetime.now().strftime("%H:%M")
+        })
+        st.rerun()
+
+with col4:
+    if st.button("🔄 Reset", use_container_width=True):
+        st.session_state.chat_history = [{
+            "role": "ai",
+            "content": "👋 **Chat direset!**\n\nSilakan mulai percakapan baru. Ceritakan tentang pengalaman dan minat karier Anda! 🚀",
+            "timestamp": datetime.now().strftime("%H:%M")
+        }]
+        st.session_state.waiting_response = False
+        st.rerun()
+
+
+# ========================================
 # UI: INPUT CHAT
 # ========================================
 st.markdown("---")
 
-col1, col2 = st.columns([6, 1])
-
-with col1:
-    user_input = st.text_input(
-        "Ketik pesan...",
-        key="user_message",
-        placeholder="Contoh: Saya berpengalaman Python 2 tahun, cocok jadi apa ya?",
-        label_visibility="collapsed"
-    )
-
-with col2:
-    send_button = st.button("📤 Kirim", use_container_width=True)
+with st.form(key="chat_form", clear_on_submit=True):
+    col1, col2 = st.columns([5, 1])
+    
+    with col1:
+        user_input = st.text_input(
+            "Ketik pesan Anda...",
+            placeholder="Contoh: Saya punya pengalaman Python 2 tahun, cocok jadi apa ya?",
+            label_visibility="collapsed",
+            key="message_input"
+        )
+    
+    with col2:
+        send_button = st.form_submit_button("📤 Kirim", use_container_width=True)
 
 
 # ========================================
@@ -354,101 +587,48 @@ if send_button and user_input.strip():
         "timestamp": datetime.now().strftime("%H:%M")
     })
     
-    # Set waiting state
     st.session_state.waiting_response = True
-    
-    # Get AI response
-    with st.spinner(""):
-        ai_response = get_career_analysis(
-            user_input, 
-            st.session_state.chat_history
-        )
-    
-    # Tambahkan response AI
-    st.session_state.chat_history.append({
-        "role": "ai",
-        "content": ai_response,
-        "timestamp": datetime.now().strftime("%H:%M")
-    })
-    
-    # Reset waiting
-    st.session_state.waiting_response = False
-    
-    # Simpan profil ke session
-    st.session_state['profil_teks'] = user_input
-    
-    # Rerun untuk update chat
     st.rerun()
 
-
-# ========================================
-# QUICK ACTION BUTTONS
-# ========================================
-st.markdown("### ⚡ Quick Actions")
-
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    if st.button("💼 Rekomendasi Lowongan"):
-        quick_msg = "Bisa rekomendasikan lowongan kerja yang cocok untuk saya?"
+# Process AI response setelah rerun
+if st.session_state.waiting_response:
+    last_message = st.session_state.chat_history[-1]
+    if last_message['role'] == 'user':
+        with st.spinner(""):
+            ai_response = get_career_analysis(
+                last_message['content'], 
+                st.session_state.chat_history
+            )
+        
         st.session_state.chat_history.append({
-            "role": "user",
-            "content": quick_msg,
-            "timestamp": datetime.now().strftime("%H:%M")
-        })
-        st.rerun()
-
-with col2:
-    if st.button("📚 Rekomendasi Pelatihan"):
-        quick_msg = "Pelatihan apa yang sebaiknya saya ikuti?"
-        st.session_state.chat_history.append({
-            "role": "user",
-            "content": quick_msg,
-            "timestamp": datetime.now().strftime("%H:%M")
-        })
-        st.rerun()
-
-with col3:
-    if st.button("🔄 Reset Chat"):
-        st.session_state.chat_history = [{
             "role": "ai",
-            "content": "👋 Halo! Saya **Career Assistant AI**.\n\nSaya akan membantu Anda menemukan jalur karier yang tepat! Ceritakan tentang:\n\n✅ Pengalaman kerja Anda\n✅ Skill yang Anda kuasai\n✅ Minat karier Anda\n\nYuk mulai! 🚀",
+            "content": ai_response,
             "timestamp": datetime.now().strftime("%H:%M")
-        }]
+        })
+        
+        st.session_state['profil_teks'] = last_message['content']
+        st.session_state.waiting_response = False
         st.rerun()
 
 
-st.divider()
-
-
 # ========================================
-# VALIDASI ASESMEN (Optional)
+# SECTION: PROFIL & REKOMENDASI
 # ========================================
 if 'assessment_score' in st.session_state and 'mapped_okupasi_id' in st.session_state:
     
-    st.markdown("### 👤 Profil Anda")
+    st.markdown("---")
+    st.markdown("### 👤 Profil & Hasil Asesmen Anda")
     
-    col1, col2, col3 = st.columns(3)
-    col1.metric(
-        "Talent ID", 
-        st.session_state.get('talent_id', '-')
-    )
-    col2.metric(
-        "Okupasi", 
-        st.session_state.get('mapped_okupasi_nama', '-')
-    )
-    col3.metric(
-        "Skor", 
-        f"{st.session_state.assessment_score}/100"
-    )
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("🆔 Talent ID", st.session_state.get('talent_id', '-'))
+    col2.metric("💼 Okupasi", st.session_state.get('mapped_okupasi_nama', '-'))
+    col3.metric("📊 Skor", f"{st.session_state.assessment_score}/100")
+    col4.metric("📈 Status", "Tersertifikasi" if st.session_state.assessment_score >= 70 else "Perlu Pelatihan")
     
-    st.divider()
+    st.markdown("---")
     
-    # ========================================
-    # REKOMENDASI DETAIL
-    # ========================================
-    if st.button("🎯 Lihat Rekomendasi Detail"):
-        with st.spinner("🤖 AI sedang memproses rekomendasi..."):
+    if st.button("🎯 Lihat Rekomendasi Detail Lengkap", use_container_width=True):
+        with st.spinner("🤖 Memproses rekomendasi terpersonalisasi..."):
             try:
                 jobs, trainings = get_recommendations(
                     st.session_state.get('mapped_okupasi_id', ''),
@@ -456,40 +636,37 @@ if 'assessment_score' in st.session_state and 'mapped_okupasi_id' in st.session_
                     st.session_state.get('profil_teks', '')
                 )
             except Exception as e:
-                st.error(f"❌ Gagal ambil rekomendasi: {e}")
+                st.error(f"❌ Error: {e}")
                 jobs, trainings = [], []
         
-        # Layout 2 kolom
         col1, col2 = st.columns(2)
         
-        # Kolom 1: Pekerjaan
         with col1:
-            st.markdown("## 💼 Rekomendasi Lowongan")
+            st.markdown("### 💼 Lowongan Rekomendasi")
             
             if not jobs:
-                st.info("Belum ada lowongan yang sesuai.")
+                st.info("📭 Belum ada lowongan yang cocok saat ini.")
             else:
-                for job in jobs:
-                    with st.container():
-                        st.markdown(f"### 🧩 {job['Posisi']}")
-                        st.caption(f"🏢 {job['Perusahaan']} — 📍 {job['Lokasi']}")
-                        st.markdown(f"**Skill:** {job['Keterampilan_Dibutuhkan']}")
-                        
-                        with st.expander("📘 Deskripsi"):
-                            st.write(job['Deskripsi_Pekerjaan'])
-                            
-                        st.markdown("---")
+                for idx, job in enumerate(jobs, 1):
+                    with st.expander(f"🧩 **{job['Posisi']}** — {job['Perusahaan']}", expanded=(idx==1)):
+                        st.markdown(f"**📍 Lokasi:** {job['Lokasi']}")
+                        st.markdown(f"**🛠️ Skill:** `{job['Keterampilan_Dibutuhkan']}`")
+                        st.markdown(f"**📝 Deskripsi:**")
+                        st.write(job['Deskripsi_Pekerjaan'])
+                        st.button(f"Lamar Sekarang →", key=f"apply_{idx}", use_container_width=True)
         
-        # Kolom 2: Pelatihan
         with col2:
-            st.markdown("## 🎯 Rekomendasi Pelatihan")
-            st.markdown(f"""
-            **Skill Gap Anda:** 
-            `{st.session_state.get('skill_gap', '-')}`
-            """)
+            st.markdown("### 🎯 Pelatihan Rekomendasi")
+            st.info(f"**🎓 Skill Gap:** `{st.session_state.get('skill_gap', '-')}`")
             
             if not trainings:
-                st.info("Belum ada rekomendasi pelatihan.")
+                st.info("📭 Belum ada rekomendasi pelatihan.")
             else:
                 for training in trainings:
-                    st.success(f"📚 {training}")
+                    st.success(training)
+                
+                st.markdown("---")
+                st.markdown("**📚 Platform Belajar:**")
+                st.markdown("• [Dicoding Indonesia](https://dicoding.com)")
+                st.markdown("• [MySkill Academy](https://myskill.id)")
+                st.markdown("• [Coursera](https://coursera.org)")
