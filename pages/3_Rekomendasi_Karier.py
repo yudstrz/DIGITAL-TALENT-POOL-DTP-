@@ -33,9 +33,16 @@ st.markdown("""
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 
+/* Reset Streamlit default padding */
+.main .block-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+    max-width: 100%;
+}
+
 /* Main Container */
 .main-chat-wrapper {
-    max-width: 900px;
+    max-width: 1000px;
     margin: 0 auto;
     padding: 0;
 }
@@ -65,12 +72,14 @@ footer {visibility: hidden;}
 /* Chat Container */
 .chat-container {
     background: #f0f2f5;
-    padding: 25px;
-    height: 550px;
+    padding: 20px;
+    height: 500px;
     overflow-y: auto;
+    overflow-x: hidden;
     border-left: 1px solid #e0e0e0;
     border-right: 1px solid #e0e0e0;
     scroll-behavior: smooth;
+    box-sizing: border-box;
 }
 
 /* Scroll bar styling */
@@ -94,8 +103,10 @@ footer {visibility: hidden;}
 /* Message Wrapper */
 .message-wrapper {
     display: flex;
-    margin-bottom: 16px;
+    margin-bottom: 15px;
     animation: fadeIn 0.3s ease;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .message-wrapper.user {
@@ -108,15 +119,15 @@ footer {visibility: hidden;}
 
 /* Avatar */
 .avatar {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.3em;
+    font-size: 1.2em;
     flex-shrink: 0;
-    margin: 0 10px;
+    margin: 0 8px;
 }
 
 .avatar.user {
@@ -131,12 +142,14 @@ footer {visibility: hidden;}
 
 /* Message Bubble */
 .message-bubble {
-    max-width: 65%;
-    padding: 12px 18px;
-    border-radius: 18px;
+    max-width: 60%;
+    padding: 12px 16px;
+    border-radius: 16px;
     word-wrap: break-word;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    word-break: break-word;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     position: relative;
+    box-sizing: border-box;
 }
 
 .message-bubble.user {
@@ -144,6 +157,7 @@ footer {visibility: hidden;}
     color: white;
     border-bottom-right-radius: 4px;
     order: 1;
+    margin-left: auto;
 }
 
 .message-bubble.ai {
@@ -151,6 +165,7 @@ footer {visibility: hidden;}
     color: #333;
     border-bottom-left-radius: 4px;
     order: 2;
+    margin-right: auto;
 }
 
 /* Message Content */
@@ -192,25 +207,26 @@ footer {visibility: hidden;}
 .typing-wrapper {
     display: flex;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 15px;
+    width: 100%;
 }
 
 .typing-indicator {
     background: white;
-    padding: 15px 20px;
-    border-radius: 18px;
+    padding: 12px 18px;
+    border-radius: 16px;
     border-bottom-left-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    margin-left: 60px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    margin-left: 44px;
 }
 
 .typing-indicator span {
-    height: 10px;
-    width: 10px;
+    height: 8px;
+    width: 8px;
     background: #667eea;
     border-radius: 50%;
     display: inline-block;
-    margin: 0 3px;
+    margin: 0 2px;
     animation: typing 1.4s infinite;
 }
 
@@ -224,23 +240,48 @@ footer {visibility: hidden;}
 
 @keyframes typing {
     0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-    30% { transform: translateY(-10px); opacity: 1; }
+    30% { transform: translateY(-8px); opacity: 1; }
 }
 
 /* Input Container */
 .input-container {
     background: white;
-    padding: 20px;
+    padding: 15px;
     border-radius: 0 0 15px 15px;
     border: 1px solid #e0e0e0;
     border-top: none;
-    box-shadow: 0 -2px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+}
+
+/* Streamlit Input Fix */
+.stTextInput > div > div > input {
+    border-radius: 20px !important;
+    border: 2px solid #e0e0e0 !important;
+    padding: 10px 15px !important;
+}
+
+.stTextInput > div > div > input:focus {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1) !important;
+}
+
+/* Streamlit Button Fix */
+.stButton > button {
+    border-radius: 20px !important;
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
 }
 
 /* Animations */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+}
 }
 
 /* Quick Actions */
@@ -464,6 +505,8 @@ def get_recommendations(okupasi_id, skill_gap, profil_teks):
 # ========================================
 # UI: HEADER
 # ========================================
+st.markdown('<div class="main-chat-wrapper">', unsafe_allow_html=True)
+
 st.markdown("""
 <div class="chat-header">
     <h2>💡 Career Assistant AI</h2>
@@ -670,3 +713,5 @@ if 'assessment_score' in st.session_state and 'mapped_okupasi_id' in st.session_
                 st.markdown("• [Dicoding Indonesia](https://dicoding.com)")
                 st.markdown("• [MySkill Academy](https://myskill.id)")
                 st.markdown("• [Coursera](https://coursera.org)")
+
+st.markdown('</div>', unsafe_allow_html=True)  # Close main-chat-wrapper
