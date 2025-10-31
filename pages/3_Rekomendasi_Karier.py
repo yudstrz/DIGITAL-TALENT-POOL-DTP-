@@ -1,7 +1,5 @@
-"""
-HALAMAN REKOMENDASI - CHATBOT VERSION (Fixed)
-Chatbot AI untuk analisis profil & rekomendasi karier
-"""
+# HALAMAN REKOMENDASI - CHATBOT VERSION (Fixed)
+# Chatbot AI untuk analisis profil & rekomendasi karier
 
 import streamlit as st
 import json
