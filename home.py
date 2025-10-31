@@ -1,15 +1,13 @@
 # Home.py
-"""
-HALAMAN UTAMA: LANDING PAGE
+# HALAMAN UTAMA: LANDING PAGE
 
-ANALOGI: Ini adalah PINTU DEPAN atau LOBBY sistem.
-User pertama kali masuk akan melihat halaman ini.
+# ANALOGI: Ini adalah PINTU DEPAN atau LOBBY sistem.
+# User pertama kali masuk akan melihat halaman ini.
 
-FUNGSI:
-1. Menyambut user
-2. Menjelaskan sistem
-3. Mengarahkan user ke halaman yang sesuai
-"""
+# FUNGSI:
+# 1. Menyambut user
+# 2. Menjelaskan sistem
+# 3. Mengarahkan user ke halaman yang sesuai
 
 import streamlit as st
 
