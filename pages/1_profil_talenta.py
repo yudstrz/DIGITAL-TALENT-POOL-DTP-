@@ -1,16 +1,7 @@
 # pages/1_👤_Profil_Talenta.py
 """
-HALAMAN 1: INPUT PROFIL TALENTA
-
-ANALOGI: Ini adalah PINTU MASUK sistem.
-User mengisi formulir dan upload CV seperti mendaftar pekerjaan.
-
-ALUR:
-1. User upload CV (PDF/DOCX/TXT)
-2. AI membaca CV dan otomatis isi form
-3. User melengkapi data yang kurang
-4. Klik "Simpan" → AI memetakan ke okupasi PON TIK
-5. Hasil mapping ditampilkan
+HALAMAN PROFIL TALENTA - ALL IN ONE
+Semua fungsi AI ada di file ini (tidak ada ai_engine.py)
 """
 
 import streamlit as st
@@ -19,9 +10,10 @@ import re
 import io
 from pypdf import PdfReader
 import docx
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-from config import EXCEL_PATH, SHEET_TALENTA, SHEET_HASIL
-from ai_engine import initialize_ai_engine, extract_profile_entities, map_profile_to_pon
+from config import EXCEL_PATH, SHEET_PON, SHEET_TALENTA
 
 # ========================================
 # KONFIGURASI HALAMAN
@@ -34,11 +26,29 @@ st.set_page_config(
 
 
 # ========================================
-# FUNGSI EKSTRAKSI FILE
+# FUNGSI 1: LOAD EXCEL
 # ========================================
+@st.cache_data
+def load_excel_sheet(file_path, sheet_name):
+    """Membaca sheet dari Excel"""
+    try:
+        df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
+        df.columns = df.columns.str.strip()
+        df = df.fillna('')
+        return df
+    except FileNotFoundError:
+        st.error(f"File tidak ditemukan: '{file_path}'")
+        return None
+    except Exception as e:
+        st.error(f"Gagal memuat sheet '{sheet_name}': {e}")
+        return None
 
+
+# ========================================
+# FUNGSI 2: EKSTRAK FILE
+# ========================================
 def extract_text_from_pdf(file_io):
-    """Baca teks dari file PDF"""
+    """Ekstrak teks dari PDF"""
     reader = PdfReader(file_io)
     text = ""
     for page in reader.pages:
@@ -47,7 +57,7 @@ def extract_text_from_pdf(file_io):
 
 
 def extract_text_from_docx(file_io):
-    """Baca teks dari file DOCX"""
+    """Ekstrak teks dari DOCX"""
     doc = docx.Document(file_io)
     text = ""
     for para in doc.paragraphs:
@@ -55,17 +65,13 @@ def extract_text_from_docx(file_io):
     return text
 
 
+# ========================================
+# FUNGSI 3: PARSING CV (AI Sederhana)
+# ========================================
 def parse_cv_data(cv_text):
     """
-    FUNGSI: AI sederhana untuk parsing CV
-    
-    ANALOGI: Seperti membaca CV dan mencatat info penting:
-    - Email
-    - Nama (baris pertama biasanya)
-    - LinkedIn URL
-    - Lokasi (kota yang disebutkan)
-    
-    TEKNIS: Menggunakan Regex (pattern matching)
+    AI sederhana untuk parsing CV menggunakan Regex
+    Ekstrak: email, nama, lokasi, LinkedIn
     """
     data = {
         "email": "",
@@ -89,7 +95,7 @@ def parse_cv_data(cv_text):
     if linkedin_match:
         data["linkedin"] = f"https://www.linkedin.com/in/{linkedin_match.group(1)}"
         
-    # 3. Ekstrak Nama (baris pertama biasanya nama)
+    # 3. Ekstrak Nama (baris pertama biasanya)
     first_line = cv_text.split('\n')[0].strip()
     if first_line and '@' not in first_line and len(first_line.split()) < 5: 
         data["nama"] = first_line.title()
@@ -110,47 +116,91 @@ def parse_cv_data(cv_text):
 
 
 # ========================================
-# INISIALISASI AI ENGINE
+# FUNGSI 4: EKSTRAK ENTITAS (NER Sederhana)
 # ========================================
-"""
-PENTING: AI Engine harus diinisialisasi dulu sebelum bisa dipakai.
-Seperti menyalakan mesin mobil sebelum jalan.
-"""
-
-ai_engine_ready = False
-with st.spinner("Memuat AI Engine (Vector DB)..."):
-    if not st.session_state.get('ai_initialized', False):
-        if initialize_ai_engine():
-            ai_engine_ready = True
-        else:
-            st.error("""
-            ❌ Gagal menginisialisasi AI Engine. 
-            Pastikan file 'DTP_Database (2).xlsx' ada di folder 'data/'
-            """)
-            ai_engine_ready = False
-    else:
-        ai_engine_ready = True
+def extract_profile_entities(raw_cv: str):
+    """
+    Named Entity Recognition sederhana
+    Ambil kata-kata penting (panjang >= 4 huruf)
+    """
+    words = set(re.findall(r'\b\w{4,}\b', raw_cv.lower()))
+    profile_text = ' '.join(words)
+    return profile_text
 
 
 # ========================================
-# JUDUL HALAMAN
+# FUNGSI 5: INISIALISASI VECTORIZER
 # ========================================
+@st.cache_resource
+def initialize_vectorizer():
+    """
+    Inisialisasi TF-IDF Vectorizer dan training dengan data PON
+    Hanya dijalankan sekali (cache)
+    """
+    # Load data PON TIK
+    df_pon = load_excel_sheet(EXCEL_PATH, SHEET_PON)
+    
+    if df_pon is None or df_pon.empty:
+        st.error("Data PON TIK tidak bisa dimuat")
+        return None, None, None
+    
+    # Gabungkan teks okupasi
+    pon_corpus = (
+        df_pon['Okupasi'] + ' ' + 
+        df_pon['Unit_Kompetensi'] + ' ' + 
+        df_pon['Kuk_Keywords']
+    )
+    
+    # Training vectorizer
+    vectorizer = TfidfVectorizer(stop_words='english', max_features=1000)
+    pon_vectors = vectorizer.fit_transform(pon_corpus)
+    
+    return vectorizer, pon_vectors, df_pon
 
-st.title("👤 1. Profil Talenta")
-st.markdown("""
-Masukkan data diri dan profil Anda. 
-AI akan menganalisis CV Anda dan memetakan ke PON TIK.
-""")
+
+# ========================================
+# FUNGSI 6: MAPPING KE PON TIK
+# ========================================
+def map_profile_to_pon(profile_text: str):
+    """
+    Semantic search: cari okupasi PON yang paling cocok
+    Menggunakan Cosine Similarity
+    """
+    # Ambil vectorizer yang sudah di-training
+    vectorizer, pon_vectors, df_pon = initialize_vectorizer()
+    
+    if vectorizer is None:
+        return None, None, 0, ""
+    
+    try:
+        # Ubah profil jadi vector
+        query_vector = vectorizer.transform([profile_text])
+        
+        # Hitung similarity dengan semua okupasi
+        scores = cosine_similarity(query_vector, pon_vectors)
+        
+        # Ambil yang paling cocok
+        best_match_index = scores.argmax()
+        best_score = scores[0, best_match_index]
+        
+        # Ambil data okupasi
+        pon_data = df_pon.iloc[best_match_index]
+        okupasi_id = pon_data['OkupasiID']
+        okupasi_nama = pon_data['Okupasi']
+        
+        # Simulasi skill gap
+        gap_keterampilan = "Cloud Computing, CI/CD, Agile"
+        
+        return okupasi_id, okupasi_nama, best_score, gap_keterampilan
+        
+    except Exception as e:
+        st.error(f"Error mapping: {e}")
+        return None, None, 0, ""
 
 
 # ========================================
 # INISIALISASI SESSION STATE
 # ========================================
-"""
-Session State = memori sementara untuk menyimpan data user.
-Seperti clipboard yang bisa diakses di semua halaman.
-"""
-
 if 'form_email' not in st.session_state:
     st.session_state.form_email = ""
 if 'form_nama' not in st.session_state:
@@ -164,22 +214,31 @@ if 'form_cv_text' not in st.session_state:
 
 
 # ========================================
-# FILE UPLOADER CV
+# UI: JUDUL
 # ========================================
+st.title("👤 1. Profil Talenta")
+st.markdown("""
+Masukkan data diri dan profil Anda. 
+AI akan menganalisis CV Anda dan memetakan ke PON TIK.
+""")
 
+
+# ========================================
+# UI: FILE UPLOADER
+# ========================================
 st.subheader("🤖 Otomatis Isi Data dengan CV")
-st.markdown("Unggah CV Anda (PDF/DOCX/TXT), AI akan mengisi form di bawah.")
+st.markdown("Unggah CV Anda (PDF/DOCX/TXT), AI akan mengisi form.")
 
 uploaded_file = st.file_uploader(
-    "Upload CV Anda", 
+    "Upload CV", 
     type=["pdf", "docx", "txt"],
     label_visibility="collapsed"
 )
 
 if uploaded_file is not None:
-    with st.spinner("Memproses CV dengan AI..."):
+    with st.spinner("🤖 AI sedang membaca CV..."):
         try:
-            # Baca file berdasarkan tipe
+            # Baca file
             if uploaded_file.type == "application/pdf":
                 file_io = io.BytesIO(uploaded_file.getvalue())
                 raw_text = extract_text_from_pdf(file_io)
@@ -191,7 +250,7 @@ if uploaded_file is not None:
             else:  # TXT
                 raw_text = uploaded_file.getvalue().decode("utf-8")
             
-            # Panggil AI parser
+            # Parse dengan AI
             parsed_data = parse_cv_data(raw_text)
             
             # Update session state
@@ -201,76 +260,62 @@ if uploaded_file is not None:
             st.session_state.form_linkedin = parsed_data["linkedin"]
             st.session_state.form_cv_text = parsed_data["full_text"]
             
-            st.success("✅ CV berhasil diproses! Periksa data di bawah.")
+            st.success("✅ CV berhasil diproses!")
             
         except Exception as e:
-            st.error(f"❌ Gagal memproses file: {e}")
+            st.error(f"❌ Gagal memproses: {e}")
 
 st.markdown("---")
 
 
 # ========================================
-# FORM INPUT PROFIL
+# UI: FORM INPUT
 # ========================================
-
 with st.form("profil_form"):
     
     st.subheader("📧 Data Akun")
     email = st.text_input(
         "Email Anda*", 
         value=st.session_state.form_email,
-        help="Email akan digunakan sebagai ID unik Anda",
         placeholder="contoh@email.com"
     )
 
     st.subheader("👤 Data Diri")
-    
     nama = st.text_input(
         "Nama Lengkap*", 
         value=st.session_state.form_nama,
-        placeholder="Masukkan nama lengkap"
+        placeholder="Nama lengkap"
     )
     
     lokasi = st.text_input(
-        "Lokasi (Kota, Provinsi)", 
+        "Lokasi", 
         value=st.session_state.form_lokasi,
-        placeholder="Contoh: Jakarta, Bandung, Surabaya"
+        placeholder="Jakarta, Bandung, dll"
     )
     
     linkedin = st.text_input(
-        "URL Profil LinkedIn", 
+        "LinkedIn", 
         value=st.session_state.form_linkedin,
-        placeholder="https://www.linkedin.com/in/username"
+        placeholder="https://linkedin.com/in/..."
     )
     
     st.subheader("💼 Profil Profesional")
     raw_cv = st.text_area(
-        "Tempelkan CV atau Deskripsi Diri*", 
+        "CV atau Deskripsi Diri*", 
         value=st.session_state.form_cv_text,
         height=250,
-        help="AI akan ekstrak pendidikan, pengalaman, keterampilan"
+        help="AI akan ekstrak skill dari teks ini"
     )
     
-    # Disable tombol jika AI Engine gagal
-    submit_disabled = not ai_engine_ready
-    if submit_disabled:
-        st.warning("⚠️ Tombol disabled karena AI Engine gagal dimuat")
-    
-    submitted = st.form_submit_button(
-        "💾 Simpan & Petakan Profil Saya", 
-        disabled=submit_disabled
-    )
+    submitted = st.form_submit_button("💾 Simpan & Petakan Profil")
 
 
 # ========================================
-# PROSES FORM SUBMISSION
+# PROSES FORM
 # ========================================
-
 if submitted:
-    # Validasi input wajib
     if not email or not nama or not raw_cv:
         st.warning("⚠️ Email, Nama, dan CV wajib diisi!")
-        
     else:
         # Update session state
         st.session_state.form_email = email
@@ -279,57 +324,42 @@ if submitted:
         st.session_state.form_linkedin = linkedin
         st.session_state.form_cv_text = raw_cv
         
-        with st.spinner("🤖 AI sedang memetakan profil Anda..."):
+        with st.spinner("🤖 AI sedang memetakan profil..."):
             try:
-                talent_id = email  # Email sebagai unique ID
+                talent_id = email
                 
-                # TAHAP 1: Ekstraksi entitas dari CV
-                st.write("📝 Tahap 1: Mengekstrak entitas dari CV...")
-                profile_text_entities = extract_profile_entities(raw_cv)
+                # Ekstrak entitas
+                st.write("📝 Mengekstrak entitas...")
+                profile_entities = extract_profile_entities(raw_cv)
                 
-                # TAHAP 2: Mapping ke PON TIK
-                st.write("🎯 Tahap 2: Memetakan ke PON TIK...")
-                okupasi_id, okupasi_nama, skor, gap = map_profile_to_pon(
-                    profile_text_entities
-                )
+                # Mapping ke PON
+                st.write("🎯 Memetakan ke PON TIK...")
+                okupasi_id, okupasi_nama, skor, gap = map_profile_to_pon(profile_entities)
                 
                 if okupasi_id is None:
-                    st.error("❌ Gagal memetakan profil. Database PON TIK kosong.")
-                    
+                    st.error("❌ Gagal mapping. Coba lagi.")
                 else:
-                    # Simpan ke session state
+                    # Simpan hasil
                     st.session_state.talent_id = talent_id
                     st.session_state.mapped_okupasi_id = okupasi_id
                     st.session_state.mapped_okupasi_nama = okupasi_nama
                     st.session_state.skill_gap = gap
-                    st.session_state.assessment_score = None
-                    st.session_state.profile_text = profile_text_entities
-
+                    st.session_state.profile_text = profile_entities
+                    
                     # Tampilkan hasil
                     st.success("✅ Profil Berhasil Dipetakan!")
                     
                     st.subheader("📊 Hasil Pemetaan AI:")
-                    
                     col1, col2 = st.columns(2)
-                    col1.metric(
-                        "Okupasi Paling Sesuai", 
-                        okupasi_nama
-                    )
-                    col2.metric(
-                        "Tingkat Kecocokan", 
-                        f"{skor*100:.2f}%"
-                    )
+                    col1.metric("Okupasi Sesuai", okupasi_nama)
+                    col2.metric("Kecocokan", f"{skor*100:.2f}%")
                     
-                    st.warning(f"""
-                    **⚠️ Identifikasi Kesenjangan Keterampilan:**
-                    
-                    {gap}
-                    """)
+                    st.warning(f"⚠️ **Skill Gap:** {gap}")
                     
                     st.info("""
-                    💡 **Langkah Selanjutnya:**
-                    Validasi kompetensi Anda melalui Asesmen di halaman berikutnya!
+                    💡 **Next Step:**
+                    Lanjut ke **Asesmen Kompetensi** untuk validasi!
                     """)
             
             except Exception as e:
-                st.error(f"❌ Terjadi kesalahan: {e}")
+                st.error(f"❌ Error: {e}")
