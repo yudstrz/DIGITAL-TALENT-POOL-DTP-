@@ -6,7 +6,7 @@ Konfigurasi sistem - hanya berisi path dan konstanta
 import os
 
 # Path ke file Excel database
-EXCEL_PATH = os.path.join("data", "DTP_Database (2).xlsx")
+EXCEL_PATH = os.path.join("data", "DTP_Database.xlsx")
 
 # Nama sheet di Excel
 SHEET_PON = "PON_TIK"
