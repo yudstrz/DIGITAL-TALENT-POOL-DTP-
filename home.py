@@ -134,3 +134,10 @@ st.markdown("---")
 st.markdown("## 🔄 Alur Kerja Sistem")
 
 st.markdown("""
+1️⃣ **Upload CV Anda** — sistem membaca dan memetakan kompetensi utama Anda.  
+2️⃣ **AI Mapping** — profil Anda dicocokkan dengan standar PON TIK.  
+3️⃣ **Asesmen Kompetensi** — AI membuat tes otomatis sesuai hasil pemetaan.  
+4️⃣ **Rekomendasi Karier** — dapatkan saran pekerjaan & pelatihan.  
+5️⃣ **Dashboard Nasional** — data agregat untuk pemantauan SDM Digital.
+""")
+
