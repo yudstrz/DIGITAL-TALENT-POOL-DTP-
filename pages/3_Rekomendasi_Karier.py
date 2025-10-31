@@ -1,5 +1,5 @@
 """
-HALAMAN REKOMENDASI - CHATBOT VERSION (Enhanced UI)
+HALAMAN REKOMENDASI - CHATBOT VERSION (Fixed)
 Chatbot AI untuk analisis profil & rekomendasi karier
 """
 
@@ -33,16 +33,9 @@ st.markdown("""
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 
-/* Reset Streamlit default padding */
-.main .block-container {
-    padding-left: 2rem;
-    padding-right: 2rem;
-    max-width: 100%;
-}
-
 /* Main Container */
 .main-chat-wrapper {
-    max-width: 1000px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 0;
 }
@@ -72,14 +65,12 @@ footer {visibility: hidden;}
 /* Chat Container */
 .chat-container {
     background: #f0f2f5;
-    padding: 20px;
-    height: 500px;
+    padding: 25px;
+    height: 550px;
     overflow-y: auto;
-    overflow-x: hidden;
     border-left: 1px solid #e0e0e0;
     border-right: 1px solid #e0e0e0;
     scroll-behavior: smooth;
-    box-sizing: border-box;
 }
 
 /* Scroll bar styling */
@@ -103,10 +94,8 @@ footer {visibility: hidden;}
 /* Message Wrapper */
 .message-wrapper {
     display: flex;
-    margin-bottom: 15px;
+    margin-bottom: 16px;
     animation: fadeIn 0.3s ease;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .message-wrapper.user {
@@ -119,15 +108,15 @@ footer {visibility: hidden;}
 
 /* Avatar */
 .avatar {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2em;
+    font-size: 1.3em;
     flex-shrink: 0;
-    margin: 0 8px;
+    margin: 0 10px;
 }
 
 .avatar.user {
@@ -142,14 +131,12 @@ footer {visibility: hidden;}
 
 /* Message Bubble */
 .message-bubble {
-    max-width: 60%;
-    padding: 12px 16px;
-    border-radius: 16px;
+    max-width: 65%;
+    padding: 12px 18px;
+    border-radius: 18px;
     word-wrap: break-word;
-    word-break: break-word;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     position: relative;
-    box-sizing: border-box;
 }
 
 .message-bubble.user {
@@ -157,7 +144,6 @@ footer {visibility: hidden;}
     color: white;
     border-bottom-right-radius: 4px;
     order: 1;
-    margin-left: auto;
 }
 
 .message-bubble.ai {
@@ -165,7 +151,6 @@ footer {visibility: hidden;}
     color: #333;
     border-bottom-left-radius: 4px;
     order: 2;
-    margin-right: auto;
 }
 
 /* Message Content */
@@ -207,26 +192,25 @@ footer {visibility: hidden;}
 .typing-wrapper {
     display: flex;
     align-items: center;
-    margin-bottom: 15px;
-    width: 100%;
+    margin-bottom: 16px;
 }
 
 .typing-indicator {
     background: white;
-    padding: 12px 18px;
-    border-radius: 16px;
+    padding: 15px 20px;
+    border-radius: 18px;
     border-bottom-left-radius: 4px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    margin-left: 44px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-left: 60px;
 }
 
 .typing-indicator span {
-    height: 8px;
-    width: 8px;
+    height: 10px;
+    width: 10px;
     background: #667eea;
     border-radius: 50%;
     display: inline-block;
-    margin: 0 2px;
+    margin: 0 3px;
     animation: typing 1.4s infinite;
 }
 
@@ -240,73 +224,23 @@ footer {visibility: hidden;}
 
 @keyframes typing {
     0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-    30% { transform: translateY(-8px); opacity: 1; }
+    30% { transform: translateY(-10px); opacity: 1; }
 }
 
 /* Input Container */
 .input-container {
     background: white;
-    padding: 15px;
+    padding: 20px;
     border-radius: 0 0 15px 15px;
     border: 1px solid #e0e0e0;
     border-top: none;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-}
-
-/* Streamlit Input Fix */
-.stTextInput > div > div > input {
-    border-radius: 20px !important;
-    border: 2px solid #e0e0e0 !important;
-    padding: 10px 15px !important;
-}
-
-.stTextInput > div > div > input:focus {
-    border-color: #667eea !important;
-    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1) !important;
-}
-
-/* Streamlit Button Fix */
-.stButton > button {
-    border-radius: 20px !important;
-    font-weight: 500 !important;
-    transition: all 0.3s ease !important;
-}
-
-.stButton > button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3) !important;
+    box-shadow: 0 -2px 15px rgba(0,0,0,0.05);
 }
 
 /* Animations */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
-}
-}
-
-/* Quick Actions */
-.quick-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 15px;
-}
-
-.quick-btn {
-    background: white;
-    border: 2px solid #667eea;
-    color: #667eea;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.85em;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.quick-btn:hover {
-    background: #667eea;
-    color: white;
-    transform: translateY(-2px);
 }
 
 /* Status Badge */
@@ -355,6 +289,9 @@ if 'chat_history' not in st.session_state:
 
 if 'waiting_response' not in st.session_state:
     st.session_state.waiting_response = False
+
+if 'trigger_ai_response' not in st.session_state:
+    st.session_state.trigger_ai_response = False
 
 
 # ========================================
@@ -505,8 +442,6 @@ def get_recommendations(okupasi_id, skill_gap, profil_teks):
 # ========================================
 # UI: HEADER
 # ========================================
-st.markdown('<div class="main-chat-wrapper">', unsafe_allow_html=True)
-
 st.markdown("""
 <div class="chat-header">
     <h2>💡 Career Assistant AI</h2>
@@ -529,29 +464,56 @@ if len(st.session_state.chat_history) == 1:
 
 
 # ========================================
+# PROSES AI RESPONSE (Jika ada trigger)
+# ========================================
+if st.session_state.trigger_ai_response:
+    last_message = st.session_state.chat_history[-1]
+    if last_message['role'] == 'user':
+        # Tampilkan typing indicator
+        st.session_state.waiting_response = True
+        
+        # Get AI response
+        ai_response = get_career_analysis(
+            last_message['content'], 
+            st.session_state.chat_history
+        )
+        
+        # Tambahkan AI response
+        st.session_state.chat_history.append({
+            "role": "ai",
+            "content": ai_response,
+            "timestamp": datetime.now().strftime("%H:%M")
+        })
+        
+        # Save profil
+        st.session_state['profil_teks'] = last_message['content']
+        
+        # Reset flags
+        st.session_state.waiting_response = False
+        st.session_state.trigger_ai_response = False
+
+
+# ========================================
 # UI: CHAT CONTAINER
 # ========================================
-chat_placeholder = st.empty()
+st.markdown('<div class="chat-container" id="chat-box">', unsafe_allow_html=True)
 
-with chat_placeholder.container():
-    st.markdown('<div class="chat-container" id="chat-box">', unsafe_allow_html=True)
-    
-    for message in st.session_state.chat_history:
-        render_chat_bubble(message)
-    
-    if st.session_state.waiting_response:
-        st.markdown("""
-        <div class="typing-wrapper">
-            <div class="avatar ai">🤖</div>
-            <div class="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
+for message in st.session_state.chat_history:
+    render_chat_bubble(message)
+
+if st.session_state.waiting_response:
+    st.markdown("""
+    <div class="typing-wrapper">
+        <div class="avatar ai">🤖</div>
+        <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
         </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ========================================
@@ -568,6 +530,7 @@ with col1:
             "content": "Lowongan apa yang cocok untuk saya?",
             "timestamp": datetime.now().strftime("%H:%M")
         })
+        st.session_state.trigger_ai_response = True
         st.rerun()
 
 with col2:
@@ -577,6 +540,7 @@ with col2:
             "content": "Pelatihan apa yang sebaiknya saya ikuti?",
             "timestamp": datetime.now().strftime("%H:%M")
         })
+        st.session_state.trigger_ai_response = True
         st.rerun()
 
 with col3:
@@ -586,6 +550,7 @@ with col3:
             "content": "Analisis skill saya dan kasih saran karier",
             "timestamp": datetime.now().strftime("%H:%M")
         })
+        st.session_state.trigger_ai_response = True
         st.rerun()
 
 with col4:
@@ -596,6 +561,7 @@ with col4:
             "timestamp": datetime.now().strftime("%H:%M")
         }]
         st.session_state.waiting_response = False
+        st.session_state.trigger_ai_response = False
         st.rerun()
 
 
@@ -620,42 +586,20 @@ with st.form(key="chat_form", clear_on_submit=True):
 
 
 # ========================================
-# PROSES CHAT
+# PROSES INPUT USER
 # ========================================
 if send_button and user_input.strip():
-    # Tambahkan pesan user
     st.session_state.chat_history.append({
         "role": "user",
         "content": user_input,
         "timestamp": datetime.now().strftime("%H:%M")
     })
-    
-    st.session_state.waiting_response = True
+    st.session_state.trigger_ai_response = True
     st.rerun()
-
-# Process AI response setelah rerun
-if st.session_state.waiting_response:
-    last_message = st.session_state.chat_history[-1]
-    if last_message['role'] == 'user':
-        with st.spinner(""):
-            ai_response = get_career_analysis(
-                last_message['content'], 
-                st.session_state.chat_history
-            )
-        
-        st.session_state.chat_history.append({
-            "role": "ai",
-            "content": ai_response,
-            "timestamp": datetime.now().strftime("%H:%M")
-        })
-        
-        st.session_state['profil_teks'] = last_message['content']
-        st.session_state.waiting_response = False
-        st.rerun()
 
 
 # ========================================
-# SECTION: PROFIL & REKOMENDASI
+# SECTION: PROFIL & REKOMENDASI (OPSIONAL)
 # ========================================
 if 'assessment_score' in st.session_state and 'mapped_okupasi_id' in st.session_state:
     
@@ -713,5 +657,3 @@ if 'assessment_score' in st.session_state and 'mapped_okupasi_id' in st.session_
                 st.markdown("• [Dicoding Indonesia](https://dicoding.com)")
                 st.markdown("• [MySkill Academy](https://myskill.id)")
                 st.markdown("• [Coursera](https://coursera.org)")
-
-st.markdown('</div>', unsafe_allow_html=True)  # Close main-chat-wrapper
