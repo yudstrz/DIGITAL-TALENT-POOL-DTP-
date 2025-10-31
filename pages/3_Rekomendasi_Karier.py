@@ -6,7 +6,7 @@ import json
 import random
 import requests
 from datetime import datetime
-import markdown
+import mistune
 
 from config import (
     EXCEL_PATH, SHEET_LOWONGAN,
@@ -353,6 +353,7 @@ Jawab sekarang:"""
 def render_chat_bubble(message: dict):
     """Render chat bubble dengan avatar"""
     if message['role'] == 'user':
+        # Pesan user tidak perlu di-render, tampilkan apa adanya (plain text)
         st.markdown(f"""
         <div class="message-wrapper user">
             <div class="message-bubble user">
@@ -362,6 +363,22 @@ def render_chat_bubble(message: dict):
             <div class="avatar user">👤</div>
         </div>
         """, unsafe_allow_html=True)
+    else:
+        # --- PERBAIKAN 2: Gunakan mistune untuk konversi Markdown ke HTML ---
+        # Ini akan mengubah "**bold**" menjadi "<strong>bold</strong>"
+        # dan "\n" menjadi "<br>" atau "<p>" secara otomatis.
+        content_html = mistune.html(message['content']) 
+        
+        st.markdown(f"""
+        <div class="message-wrapper ai">
+            <div class="avatar ai">🤖</div>
+            <div class="message-bubble ai">
+                <div class="message-content">{content_html}</div> 
+                <div class="message-time">{message['timestamp']}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        # --- AKHIR PERBAIKAN ---
     else:
         content_formatted = message['content'].replace('\n', '<br>')
         st.markdown(f"""
