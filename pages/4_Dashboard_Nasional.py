@@ -1,29 +1,14 @@
 # pages/4_📊_Dashboard_Nasional.py
 """
-HALAMAN 4: DASHBOARD NASIONAL
-
-ANALOGI: Ini adalah PUSAT KOMANDO atau CONTROL ROOM.
-Pemangku kepentingan (Pemerintah, Industri, EduTech) bisa melihat
-data agregat talenta digital nasional.
-
-ALUR:
-1. Ambil data agregat dari database
-2. Tampilkan 3 visualisasi utama:
-   - Distribusi Okupasi (Bar Chart)
-   - Sebaran Lokasi (Map)
-   - Skill Gap Nasional (Bar Chart)
-
-TARGET USER:
-- Pemerintah: Untuk kebijakan SDM
-- Industri: Untuk perencanaan rekrutmen
-- EduTech: Untuk desain kurikulum
+HALAMAN DASHBOARD - TANPA AI
+Visualisasi data agregat (data dummy untuk demo)
 """
 
 import streamlit as st
-from ai_engine import get_national_dashboard_data
+import pandas as pd
 
 # ========================================
-# KONFIGURASI HALAMAN
+# KONFIGURASI
 # ========================================
 st.set_page_config(
     page_title="Dashboard Nasional", 
@@ -33,56 +18,68 @@ st.set_page_config(
 
 
 # ========================================
+# FUNGSI: GET DASHBOARD DATA (DUMMY)
+# ========================================
+def get_national_dashboard_data():
+    """
+    Return data dummy untuk visualisasi
+    Dalam produksi, ini akan ambil dari database
+    """
+    # 1. Distribusi Okupasi (dummy)
+    distribusi_okupasi = pd.DataFrame({
+        'Okupasi': ['Data Analyst', 'DevOps Engineer', 'AI Engineer', 'UI/UX Designer'],
+        'Jumlah_Talenta': [45, 32, 28, 20]
+    }).set_index('Okupasi')
+
+    # 2. Sebaran Lokasi (dummy)
+    sebaran_lokasi = pd.DataFrame({
+        'Lokasi': ['Jakarta', 'Bandung', 'Surabaya', 'Yogyakarta', 'Medan'],
+        'Jumlah': [50, 30, 25, 20, 15],
+        'lat': [-6.20, -6.91, -7.25, -7.79, 3.59],
+        'lon': [106.81, 107.61, 112.75, 110.36, 98.67],
+        'size': [50, 30, 25, 20, 15]
+    })
+    
+    # 3. Skill Gap (dummy)
+    skill_gap_umum = pd.DataFrame({
+        'Keterampilan': ['Cloud Computing', 'AI/ML', 'Project Management', 'Data Governance'],
+        'Jumlah_Gap': [120, 95, 80, 65]
+    }).set_index('Keterampilan')
+
+    return distribusi_okupasi, sebaran_lokasi, skill_gap_umum
+
+
+# ========================================
 # JUDUL
 # ========================================
 st.title("📊 4. Dashboard Talenta Digital Nasional")
 st.markdown("""
-Visualisasi data agregat untuk pemangku kepentingan 
-(Pemerintah, Industri, EduTech).
+Visualisasi data agregat untuk pemangku kepentingan.
 
-**Data ini adalah simulasi** - dalam produksi, data diambil dari:
-- Hasil pemetaan profil (Tahap 2)
-- Hasil asesmen (Tahap 4)
-- Database talenta nasional
+**Catatan:** Data ini adalah simulasi untuk demo.
 """)
 
 
 # ========================================
 # AMBIL DATA
 # ========================================
-
-with st.spinner("📡 Mengagregasi data nasional..."):
+with st.spinner("📡 Mengagregasi data..."):
     dist_okupasi, sebaran_lokasi, skill_gap = get_national_dashboard_data()
 
 
 # ========================================
 # VISUALISASI 1: DISTRIBUSI OKUPASI
 # ========================================
-"""
-ANALOGI: Seperti melihat berapa banyak dokter, insinyur, guru di Indonesia.
-
-INSIGHT:
-- Okupasi mana yang paling banyak talenta?
-- Okupasi mana yang langka?
-- Untuk perencanaan kurikulum EduTech
-"""
-
 st.header("📊 Distribusi Okupasi Talenta")
-st.markdown("""
-Menampilkan berapa banyak talenta di setiap okupasi PON TIK.
-""")
+st.markdown("Berapa banyak talenta di setiap okupasi PON TIK")
 
 if not dist_okupasi.empty:
     st.bar_chart(dist_okupasi)
     
-    # Insight otomatis
     top_okupasi = dist_okupasi.idxmax()[0]
-    st.info(f"""
-    💡 **Insight:**
-    Okupasi dengan talenta terbanyak: **{top_okupasi}**
-    """)
+    st.info(f"💡 **Insight:** Okupasi terbanyak: **{top_okupasi}**")
 else:
-    st.warning("⚠️ Belum ada data distribusi okupasi")
+    st.warning("⚠️ Belum ada data")
 
 st.markdown("---")
 
@@ -90,106 +87,58 @@ st.markdown("---")
 # ========================================
 # VISUALISASI 2: SEBARAN LOKASI
 # ========================================
-"""
-ANALOGI: Seperti melihat peta persebaran penduduk Indonesia.
-
-INSIGHT:
-- Kota mana yang paling banyak talenta digital?
-- Daerah mana yang perlu perhatian khusus?
-- Untuk kebijakan pemerataan SDM
-"""
-
-st.header("🗺️ Sebaran Talenta Nasional (Berdasarkan Lokasi)")
-st.markdown("""
-Peta interaktif menampilkan lokasi talenta digital di Indonesia.
-Ukuran bubble = jumlah talenta.
-""")
+st.header("🗺️ Sebaran Talenta Nasional")
+st.markdown("Peta interaktif lokasi talenta digital Indonesia")
 
 if not sebaran_lokasi.empty:
     st.map(sebaran_lokasi, size='size', zoom=4)
     
-    # Insight otomatis
     top_lokasi = sebaran_lokasi.nlargest(1, 'Jumlah')
     if not top_lokasi.empty:
         st.info(f"""
-        💡 **Insight:**
-        Kota dengan talenta terbanyak: 
+        💡 **Insight:** Kota terbanyak: 
         **{top_lokasi.iloc[0]['Lokasi']}** 
         ({top_lokasi.iloc[0]['Jumlah']} talenta)
         """)
 else:
-    st.warning("⚠️ Belum ada data sebaran lokasi")
+    st.warning("⚠️ Belum ada data")
 
 st.markdown("---")
 
 
 # ========================================
-# VISUALISASI 3: SKILL GAP NASIONAL
+# VISUALISASI 3: SKILL GAP
 # ========================================
-"""
-ANALOGI: Seperti melihat kekurangan vitamin di populasi.
-
-INSIGHT:
-- Keterampilan apa yang paling langka?
-- Prioritas pelatihan nasional
-- Untuk desain kurikulum dan kebijakan pelatihan
-"""
-
-st.header("📉 Identifikasi Skill Gap Nasional (Top 4)")
-st.markdown("""
-Menampilkan keterampilan yang paling banyak kurang dikuasai 
-oleh talenta digital Indonesia.
-""")
+st.header("📉 Skill Gap Nasional (Top 4)")
+st.markdown("Keterampilan yang paling banyak kurang dikuasai")
 
 if not skill_gap.empty:
     st.bar_chart(skill_gap)
     
-    # Insight otomatis
     top_gap = skill_gap.idxmax()[0]
     st.warning(f"""
-    ⚠️ **Insight:**
-    Skill dengan gap terbesar: **{top_gap}**
+    ⚠️ **Insight:** Gap terbesar: **{top_gap}**
     
     **Rekomendasi:**
-    - Pemerintah: Fokuskan program pelatihan di skill ini
+    - Pemerintah: Fokus pelatihan di skill ini
     - EduTech: Buat kursus untuk skill ini
-    - Industri: Pertimbangkan in-house training
+    - Industri: In-house training
     """)
 else:
-    st.warning("⚠️ Belum ada data skill gap")
+    st.warning("⚠️ Belum ada data")
 
 st.markdown("---")
 
 
 # ========================================
-# FOOTER INFO
+# METRICS TAMBAHAN
 # ========================================
-
-st.info("""
-📌 **Catatan:**
-Data di atas adalah hasil agregasi dari seluruh talenta yang:
-1. Telah terdaftar di sistem
-2. Telah dipetakan ke okupasi PON TIK
-3. Telah menyelesaikan asesmen kompetensi
-
-**Untuk Akses Penuh:**
-- Hubungi admin untuk akses API dashboard
-- Data real-time tersedia via REST API
-- Export data dalam format Excel/CSV
-""")
-
-
-# ========================================
-# ADDITIONAL METRICS (BONUS)
-# ========================================
-
 st.markdown("### 📈 Metrics Tambahan")
 
 col1, col2, col3, col4 = st.columns(4)
 
-# Simulasi metrics
 col1.metric(
-    "Total Talenta Terdaftar", 
+    "Total Talenta", 
     "1,245",
     delta="12 hari ini"
 )
@@ -213,21 +162,32 @@ st.markdown("---")
 
 
 # ========================================
-# EXPORT DATA (PLACEHOLDER)
+# EXPORT (PLACEHOLDER)
 # ========================================
-
 st.markdown("### 📥 Export Data")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("📄 Export to Excel"):
-        st.info("Fitur export akan segera hadir!")
+    if st.button("📄 Export Excel"):
+        st.info("Fitur akan segera hadir!")
         
 with col2:
     if st.button("📊 Generate Report"):
-        st.info("Fitur generate report akan segera hadir!")
+        st.info("Fitur akan segera hadir!")
         
 with col3:
     if st.button("📧 Email Dashboard"):
-        st.info("Fitur email dashboard akan segera hadir!")
+        st.info("Fitur akan segera hadir!")
+
+
+# ========================================
+# FOOTER
+# ========================================
+st.info("""
+📌 **Catatan:**
+Data adalah agregasi dari talenta yang:
+1. Terdaftar di sistem
+2. Dipetakan ke okupasi PON TIK
+3. Selesai asesmen kompetensi
+""")
