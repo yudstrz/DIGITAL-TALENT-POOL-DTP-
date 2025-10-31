@@ -277,12 +277,12 @@ footer {visibility: hidden;}
 # INISIALISASI SESSION STATE
 # ========================================
 if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-    st.session_state.chat_history.append({
-        "role": "ai",
-        "content": "👋 **Halo! Saya Career Assistant AI**\n\nSaya siap membantu Anda menemukan jalur karier yang tepat di bidang TIK!\n\n💡 **Ceritakan kepada saya:**\n• Pengalaman kerja Anda\n• Skill teknis yang dikuasai\n• Minat & passion karier\n\nYuk mulai percakapan! 🚀",
-        "timestamp": datetime.now().strftime("%H:%M")
-    })
+    st.session_state.chat_history = []
+    st.session_state.chat_history.append({
+        "role": "ai",
+        "content": "👋 **Halo! Saya Career Assistant AI**\n\nSaya siap membantu Anda menemukan jalur karier yang tepat di bidang TIK!\n\n💡 **Ceritakan kepada saya:**\n• Pengalaman kerja Anda\n• Skill teknis yang dikuasai\n• Minat & passion karier\n\nYuk mulai percakapan! 🚀",
+        "timestamp": datetime.now().strftime("%H:%M")
+    })
 
 if 'waiting_response' not in st.session_state:
     st.session_state.waiting_response = False
