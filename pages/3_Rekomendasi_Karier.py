@@ -6,6 +6,7 @@ import json
 import random
 import requests
 from datetime import datetime
+import markdown
 
 from config import (
     EXCEL_PATH, SHEET_LOWONGAN,
