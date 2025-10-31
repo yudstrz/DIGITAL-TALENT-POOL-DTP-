@@ -60,17 +60,6 @@ footer {visibility: hidden;}
     opacity: 0.9;
 }
 
-/* Chat Container */
-.chat-container {
-    background: #f0f2f5;
-    padding: 25px;
-    height: 550px;
-    overflow-y: auto;
-    border-left: 1px solid #e0e0e0;
-    border-right: 1px solid #e0e0e0;
-    scroll-behavior: smooth;
-}
-
 /* Scroll bar styling */
 .chat-container::-webkit-scrollbar {
     width: 8px;
