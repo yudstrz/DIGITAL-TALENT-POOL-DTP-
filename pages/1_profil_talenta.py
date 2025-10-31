@@ -1,7 +1,6 @@
-# pages/1_👤_Profil_Talenta.py
 """
-HALAMAN PROFIL TALENTA - ALL IN ONE
-Semua fungsi AI ada di file ini (tidak ada ai_engine.py)
+HALAMAN PROFIL TALENTA - ALL IN ONE (FIXED VERSION)
+Perbaikan: konsistensi nama sheet dan error handling
 """
 
 import streamlit as st
@@ -30,17 +29,44 @@ st.set_page_config(
 # ========================================
 @st.cache_data
 def load_excel_sheet(file_path, sheet_name):
-    """Membaca sheet dari Excel"""
+    """Membaca sheet dari Excel dengan error handling lengkap"""
     try:
+        # Cek apakah file ada
+        if not os.path.exists(file_path):
+            st.error(f"❌ File tidak ditemukan: '{file_path}'")
+            return None
+        
+        # Baca Excel tanpa header dulu untuk debug
+        xls = pd.ExcelFile(file_path)
+        available_sheets = xls.sheet_names
+        
+        # Debug: tampilkan sheet yang tersedia
+        with st.expander("🔍 Debug: Sheet tersedia di Excel"):
+            st.write(f"📂 File: `{file_path}`")
+            st.write(f"📋 Sheet yang dicari: `{sheet_name}`")
+            st.write(f"📊 Sheet tersedia:")
+            for s in available_sheets:
+                st.write(f"  - {s}")
+        
+        # Cek apakah sheet ada
+        if sheet_name not in available_sheets:
+            st.error(f"❌ Sheet '{sheet_name}' tidak ditemukan!")
+            st.info(f"💡 Sheet tersedia: {', '.join(available_sheets)}")
+            return None
+        
+        # Baca sheet dengan header di baris ke-2 (index 1)
         df = pd.read_excel(file_path, sheet_name=sheet_name, header=1)
         df.columns = df.columns.str.strip()
         df = df.fillna('')
+        
+        st.success(f"✅ Sheet '{sheet_name}' berhasil dimuat ({len(df)} baris)")
         return df
-    except FileNotFoundError:
-        st.error(f"File tidak ditemukan: '{file_path}'")
-        return None
+        
     except Exception as e:
-        st.error(f"Gagal memuat sheet '{sheet_name}': {e}")
+        st.error(f"❌ Error memuat sheet '{sheet_name}': {str(e)}")
+        import traceback
+        with st.expander("🐛 Detail Error"):
+            st.code(traceback.format_exc())
         return None
 
 
@@ -135,25 +161,39 @@ def extract_profile_entities(raw_cv: str):
 def initialize_vectorizer():
     """
     Inisialisasi TF-IDF Vectorizer dan training dengan data PON
-    Hanya dijalankan sekali (cache)
+    FIXED: Menggunakan SHEET_PON dari config.py
     """
-    # Load data PON TIK
+    st.info("⚙️ Inisialisasi AI Vectorizer...")
+    
+    # PENTING: Gunakan konstanta dari config.py
     df_pon = load_excel_sheet(EXCEL_PATH, SHEET_PON)
     
     if df_pon is None or df_pon.empty:
-        st.error("Data PON TIK tidak bisa dimuat")
+        st.error("❌ Data PON TIK tidak bisa dimuat atau kosong")
+        return None, None, None
+    
+    # Validasi kolom yang dibutuhkan
+    required_cols = ['Okupasi', 'Unit_Kompetensi', 'Kuk_Keywords']
+    missing_cols = [col for col in required_cols if col not in df_pon.columns]
+    
+    if missing_cols:
+        st.error(f"❌ Kolom tidak ditemukan: {missing_cols}")
+        with st.expander("📋 Kolom tersedia"):
+            st.write(list(df_pon.columns))
         return None, None, None
     
     # Gabungkan teks okupasi
     pon_corpus = (
-        df_pon['Okupasi'] + ' ' + 
-        df_pon['Unit_Kompetensi'] + ' ' + 
-        df_pon['Kuk_Keywords']
+        df_pon['Okupasi'].astype(str) + ' ' + 
+        df_pon['Unit_Kompetensi'].astype(str) + ' ' + 
+        df_pon['Kuk_Keywords'].astype(str)
     )
     
     # Training vectorizer
     vectorizer = TfidfVectorizer(stop_words='english', max_features=1000)
     pon_vectors = vectorizer.fit_transform(pon_corpus)
+    
+    st.success(f"✅ Vectorizer siap ({len(df_pon)} okupasi)")
     
     return vectorizer, pon_vectors, df_pon
 
@@ -185,8 +225,8 @@ def map_profile_to_pon(profile_text: str):
         
         # Ambil data okupasi
         pon_data = df_pon.iloc[best_match_index]
-        okupasi_id = pon_data['OkupasiID']
-        okupasi_nama = pon_data['Okupasi']
+        okupasi_id = pon_data.get('OkupasiID', 'N/A')
+        okupasi_nama = pon_data.get('Okupasi', 'N/A')
         
         # Simulasi skill gap
         gap_keterampilan = "Cloud Computing, CI/CD, Agile"
@@ -194,7 +234,10 @@ def map_profile_to_pon(profile_text: str):
         return okupasi_id, okupasi_nama, best_score, gap_keterampilan
         
     except Exception as e:
-        st.error(f"Error mapping: {e}")
+        st.error(f"❌ Error mapping: {str(e)}")
+        import traceback
+        with st.expander("🐛 Detail Error"):
+            st.code(traceback.format_exc())
         return None, None, 0, ""
 
 
@@ -337,7 +380,7 @@ if submitted:
                 okupasi_id, okupasi_nama, skor, gap = map_profile_to_pon(profile_entities)
                 
                 if okupasi_id is None:
-                    st.error("❌ Gagal mapping. Coba lagi.")
+                    st.error("❌ Gagal mapping. Periksa debug info di atas.")
                 else:
                     # Simpan hasil
                     st.session_state.talent_id = talent_id
@@ -362,4 +405,7 @@ if submitted:
                     """)
             
             except Exception as e:
-                st.error(f"❌ Error: {e}")
+                st.error(f"❌ Error: {str(e)}")
+                import traceback
+                with st.expander("🐛 Detail Error"):
+                    st.code(traceback.format_exc())
