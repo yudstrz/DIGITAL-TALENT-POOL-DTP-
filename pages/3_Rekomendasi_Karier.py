@@ -363,8 +363,10 @@ def render_chat_bubble(message: dict):
             <div class="avatar user">👤</div>
         </div>
         """, unsafe_allow_html=True)
-    else:
-        # --- PERBAIKAN 2: Gunakan mistune untuk konversi Markdown ke HTML ---
+    
+    # Hanya satu 'else' untuk menangani 'ai' (atau role selain 'user')
+    else: 
+        # --- PERBAIKAN: Gunakan mistune untuk konversi Markdown ke HTML ---
         # Ini akan mengubah "**bold**" menjadi "<strong>bold</strong>"
         # dan "\n" menjadi "<br>" atau "<p>" secara otomatis.
         content_html = mistune.html(message['content']) 
@@ -378,18 +380,8 @@ def render_chat_bubble(message: dict):
             </div>
         </div>
         """, unsafe_allow_html=True)
-        # --- AKHIR PERBAIKAN ---
-    else:
-        content_formatted = message['content'].replace('\n', '<br>')
-        st.markdown(f"""
-        <div class="message-wrapper ai">
-            <div class="avatar ai">🤖</div>
-            <div class="message-bubble ai">
-                <div class="message-content">{content_formatted}</div>
-                <div class="message-time">{message['timestamp']}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        
+    # --- BLOK 'else:' YANG KEDUA SUDAH DIHAPUS DARI SINI ---
 
 
 # ========================================
