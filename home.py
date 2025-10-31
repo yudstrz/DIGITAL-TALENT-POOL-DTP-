@@ -1,13 +1,15 @@
 # Home.py
-# HALAMAN UTAMA: LANDING PAGE
+"""
+HALAMAN UTAMA: LANDING PAGE
 
-# ANALOGI: Ini adalah PINTU DEPAN atau LOBBY sistem.
-# User pertama kali masuk akan melihat halaman ini.
+ANALOGI: Ini adalah PINTU DEPAN atau LOBBY sistem.
+User pertama kali masuk akan melihat halaman ini.
 
-# FUNGSI:
-# 1. Menyambut user
-# 2. Menjelaskan sistem
-# 3. Mengarahkan user ke halaman yang sesuai
+FUNGSI:
+1. Menyambut user
+2. Menjelaskan sistem
+3. Mengarahkan user ke halaman yang sesuai
+"""
 
 import streamlit as st
 
@@ -45,7 +47,7 @@ st.markdown("""
         padding: 1.5em;
         border-radius: 10px;
         margin: 1em 0;
-        color: #333333; /* <-- PERBAIKAN: Warna teks gelap agar terbaca */
+        color: #333333; /* PERBAIKAN: Warna teks gelap agar terbaca */
     }
     .metric-box {
         text-align: center;
