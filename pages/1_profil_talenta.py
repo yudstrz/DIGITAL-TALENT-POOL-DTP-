@@ -7,6 +7,7 @@ import streamlit as st
 import pandas as pd
 import re
 import io
+import os
 from pypdf import PdfReader
 import docx
 from sklearn.feature_extraction.text import TfidfVectorizer
