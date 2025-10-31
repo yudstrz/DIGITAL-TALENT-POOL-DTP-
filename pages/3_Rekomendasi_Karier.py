@@ -436,16 +436,6 @@ def get_recommendations(okupasi_id, skill_gap, profil_teks):
     return jobs, trainings
 
 
-# ========================================
-# UI: HEADER
-# ========================================
-st.markdown("""
-<div class="chat-header">
-    <h2>💡 Career Assistant AI</h2>
-    <p>Konsultasi Karier TIK dengan AI • <span class="status-badge online">● Online</span></p>
-</div>
-""", unsafe_allow_html=True)
-
 
 # ========================================
 # PROSES AI RESPONSE (Jika ada trigger)
