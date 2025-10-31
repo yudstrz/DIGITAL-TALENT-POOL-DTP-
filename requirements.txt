@@ -1,40 +1,13 @@
-# requirements.txt
-# Daftar semua library Python yang dibutuhkan sistem
+streamlit
+pandas
+openpyxl
+scikit-learn
+pypdf
+python-docx
+google.generativeai
 
-# ========================================
-# FRAMEWORK UTAMA
-# ========================================
-streamlit==1.32.0          # Framework web untuk UI
-pandas==2.2.0              # Manipulasi data (Excel, CSV)
-openpyxl==3.1.2            # Baca/tulis file Excel
-
-# ========================================
-# AI & MACHINE LEARNING
-# ========================================
-scikit-learn==1.4.0        # TF-IDF, Cosine Similarity
-numpy==1.26.3              # Operasi matematika array
-
-# ========================================
-# API & NETWORKING
-# ========================================
-requests==2.31.0           # HTTP requests ke Gemini API
-urllib3==2.1.0             # Underlying library untuk requests
-
-# ========================================
-# FILE PROCESSING
-# ========================================
-pypdf==4.0.1               # Baca file PDF
-python-docx==1.1.0         # Baca file DOCX
-Pillow==10.2.0             # Image processing (jika ada)
-
-# ========================================
-# UTILITIES
-# ========================================
-python-dotenv==1.0.1       # Load environment variables dari .env
-
-# ========================================
-# OPTIONAL (untuk deployment)
-# ========================================
-# watchdog==3.0.0          # Auto-reload saat development
-# altair==5.2.0            # Visualisasi alternatif
-# plotly==5.18.0           # Visualisasi interaktif (jika pakai)
+# Library untuk implementasi NYATA (bisa ditambahkan nanti):
+# sentence-transformers
+# faiss-cpu
+# transformers
+# langchain
